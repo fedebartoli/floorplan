@@ -19,8 +19,8 @@
 #tour .tip { color: var(--text-3); font-size: 12px; line-height: 1.5; margin-top: 10px; }
 #tour .tf { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
 #tour .dots { display: flex; gap: 4px; flex: 1; }
-#tour .dots i { width: 14px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .12); transition: background .3s var(--ease); }
-#tour .dots i.on { background: #ececec; }
+#tour .dots i { width: 14px; height: 3px; border-radius: 2px; background: rgba(var(--ink), .12); transition: background .3s var(--ease); }
+#tour .dots i.on { background: var(--on); }
 #tour .tf .btn { height: 32px; }
 #tour .tf .btn.icon { width: 32px; }
 #tour .tx { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; }
