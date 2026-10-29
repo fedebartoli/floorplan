@@ -388,6 +388,12 @@ body.no-panel #panel-resize { opacity: 0; pointer-events: none; }
 .chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip button { border: 0; background: none; color: var(--text-3); cursor: pointer; width: 20px; height: 20px; border-radius: 999px; display: grid; place-items: center; flex: none; }
 .chip button:hover { background: rgba(var(--ink), .1); color: var(--text); }
+/* a blueprint's Ask / Change switch */
+#ask-mode { display: inline-flex; flex: none; gap: 2px; padding: 3px; margin-left: -10px; border-radius: 999px; background: rgba(var(--ink), .06); }
+#ask-mode button { border: 0; background: none; color: var(--text-3); font: inherit; font-size: 12.5px; font-weight: 500; height: 28px; padding: 0 12px; border-radius: 999px; cursor: pointer; transition: background .15s var(--ease), color .15s var(--ease); }
+#ask-mode button:hover { color: var(--text); }
+#ask-mode button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .18); }
+#ask-mode button:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
 #ask-input { flex: 1; min-width: 160px; height: 38px; background: none; border: 0; outline: none; font-size: 15px; color: var(--text); }
 #ask-input::placeholder { color: var(--text-3); }
 #ask-input:disabled { cursor: not-allowed; }
@@ -1752,6 +1758,7 @@ function setEngine(engine, label, warning) {
   askInput.placeholder = engine ? `Ask anything about ${G.project.name}…` : 'Asking is unavailable';
   if (typeof renderChips === 'function' && askState.context) renderChips();
   setWarning(warning || null);
+  addModeSwitch();
 }
 async function detectEngine() {
   const S = window.FLOORPLAN_SERVER;
@@ -1847,6 +1854,67 @@ function cancelAsk() {
   if (askState.engine === 'cli') fetch('/api/cancel', { method: 'POST', headers: { 'x-floorplan-token': window.FLOORPLAN_SERVER.token } }).catch(() => {});
 }
 
+// ---------- changing a blueprint from the map (served by serve.mjs) ----------
+// The Ask bar gets an Ask / Change switch. A change goes to the agent, the server checks and saves the
+// updated plan and redraws the map, every open tab reloads, and the new and changed cards are highlighted
+// as recent work. What changed is kept across that reload in sessionStorage, with an Undo.
+const CHANGE_KEY = 'floorplan-change';
+const canChange = () => PLAN && askState.engine === 'cli';
+function setAskMode(m) {
+  askState.mode = canChange() && m === 'change' ? 'change' : 'ask';
+  $('#ask-mode')?.querySelectorAll('button').forEach((b) => { b.classList.toggle('on', b.dataset.m === askState.mode); b.setAttribute('aria-pressed', String(b.dataset.m === askState.mode)); });
+  if (askState.engine) askInput.placeholder = askState.mode === 'change' ? 'Ask for a change, e.g. “also plan out refunds”…' : `Ask anything about ${G.project.name}…`;
+  askSend.title = askState.busy ? 'Stop' : askState.mode === 'change' ? 'Make this change' : 'Ask';
+}
+function addModeSwitch() {
+  if (!canChange() || $('#ask-mode')) return;
+  const sw = document.createElement('span');
+  sw.id = 'ask-mode';
+  sw.innerHTML = '<button type="button" data-m="ask" title="Ask a question about the plan">Ask</button><button type="button" data-m="change" title="Ask for a change, addition or removal, and the map is redrawn">Change</button>';
+  sw.querySelectorAll('button').forEach((b) => b.onclick = () => { setAskMode(b.dataset.m); askInput.focus(); });
+  $('#ask-form').prepend(sw);
+  setAskMode('ask');
+}
+const stash = { get: () => { try { return JSON.parse(sessionStorage.getItem(CHANGE_KEY) || 'null'); } catch { return null; } }, set: (v) => { try { v ? sessionStorage.setItem(CHANGE_KEY, JSON.stringify(v)) : sessionStorage.removeItem(CHANGE_KEY); } catch {} } };
+async function requestChange(question) {
+  setBusy(true);
+  askState.ctl = new AbortController();
+  const lines = ['Reading the plan…'];
+  const progress = (t) => { lines.push(t); showProgress(question, lines.slice(-6)); };
+  showProgress(question, lines);
+  try {
+    const r = await askViaCli(question, progress, 'change');
+    stash.set({ question, title: r.title, summary: r.summary, followups: r.followups || [], undo: r.undo, at: Date.now() });
+    progress('Redrawing the map');
+    setTimeout(() => location.reload(), 4000); // in case the reload notice doesn't arrive
+  } catch (e) {
+    if (e?.name === 'AbortError') showFailure(question, 'cancelled');
+    else if (e?.code === 'change_invalid' || e?.code === 'busy') sheetShell(question, `<p class="err">${h(String(e.message).split('\n')[0])}</p>${md(String(e.message).split('\n').slice(1).join('\n'))}`);
+    else showFailure(question, e?.code || 'upstream_error', e?.message || String(e));
+  } finally { setBusy(false); }
+}
+/** After the reload a change causes: what changed, with Undo and the changed cards on one board. */
+function showChangeResult() {
+  const c = stash.get();
+  stash.set(null);
+  if (!c) return;
+  if (c.undone) { toast('Change undone'); return; }
+  if (Date.now() - c.at > 120000) return;
+  const items = (G.recent?.items || []).filter((x) => parentOf.has(x.id)).map((x) => ({ id: x.id, note: x.note }));
+  sheetShell(c.question, `<p><strong>${h(c.title || 'Plan updated')}</strong></p>${md(c.summary)}
+    <div class="sheet-actions">${items.length ? `<button class="btn soft" data-cr="show">${iconI('search')}Show ${plural(items.length, 'change')}</button>` : ''}<button class="btn soft" data-cr="undo">${iconI('left')}Undo</button></div>
+    ${c.followups?.length ? `<div class="followups">${c.followups.slice(0, 3).map((f) => `<button data-cf="${h(f)}">${h(f)}</button>`).join('')}</div>` : ''}`);
+  sheet.querySelector('[data-cr="show"]')?.addEventListener('click', () => showBoard({ title: c.title || 'What changed', question: c.question, items }));
+  sheet.querySelector('[data-cr="undo"]').addEventListener('click', async (ev) => {
+    ev.currentTarget.disabled = true;
+    const r = await fetch('/api/plan/undo', { method: 'POST', headers: { 'x-floorplan-token': window.FLOORPLAN_SERVER.token } }).then((x) => x.json()).catch(() => ({ ok: false, error: 'Could not reach the map server.' }));
+    if (!r.ok) { toast(r.error || 'Couldn’t undo'); ev.currentTarget.disabled = false; return; }
+    stash.set({ undone: true, at: Date.now() });
+    setTimeout(() => location.reload(), 4000);
+  });
+  sheet.querySelectorAll('[data-cf]').forEach((b) => b.onclick = () => { setAskMode('change'); askInput.value = b.dataset.cf; submitAsk(); });
+}
+
 async function askViaCli(question, progress, mode = 'ask') {
   const res = await fetch('/api/ask', {
     method: 'POST', signal: askState.ctl.signal,
@@ -1920,6 +1988,7 @@ async function submitAsk() {
   if (!question || !askState.engine) return;
   askInput.value = '';
   askState.context = []; renderChips();
+  if (askState.mode === 'change') return requestChange(ctxIds.length ? `${question}\n\nThis is about: ${ctxIds.map((id) => `${id} (${info(id).name})`).join(', ')}.` : question);
   const shown = question;
   // what Claude sees: the question plus the pinned items, by id, so it starts from them
   if (ctxIds.length) question += `\n\nFocus on these map items: ${ctxIds.map((id) => `${id} (${info(id).name})`).join(', ')}.`;
@@ -2060,7 +2129,7 @@ technicalFlag = !!store.get('technical', false);
 const init = readHash();
 state.container = init.v; state.selected = init.s;
 const fontsReady = document.fonts?.ready ? Promise.race([document.fonts.ready, new Promise((ok) => setTimeout(ok, 1500))]) : Promise.resolve();
-fontsReady.then(() => render({ after: () => { renderPanel(); emit('ready', {}); } }));
+fontsReady.then(() => render({ after: () => { renderPanel(); emit('ready', {}); if (PLAN && window.FLOORPLAN_SERVER) showChangeResult(); } }));
 })();
 </script>
 <!--__UI_EXTENSIONS__-->

@@ -71,6 +71,10 @@ Node `paths` globs in architecture.json assign planned files to parts, the same 
 
 plan.mjs's "calls to planned endpoints" counts each call; the build's "http" links count each caller-to-file connection plus links to outside services, so the two numbers differ.
 
+## Changes from the map
+
+When the map is open through its server (open.mjs), the Ask bar has an **Ask / Change** switch. A change request ("also plan out refunds", "drop the admin page") goes to the same agent, read-only. It replies with the complete updated plan.json and architecture.json, and the server checks them with plan.mjs and build.mjs. If the checks fail, or new files fall under no part, it sends the problems back once. Then it saves the files, redraws the map (open tabs reload), and highlights the new and changed cards as recent work, with **Undo**. The replaced files are kept in `floorplan/.cache/history/`. Changes you make by hand or through this skill work the same way: edit the files and run refresh.mjs.
+
 ## What the design review checks
 
 - endpoints that change data and are open to anyone, unless `publicBecause` explains why;

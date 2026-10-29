@@ -102,7 +102,7 @@ Updates re-read only what changed, and an open map reloads itself. Everything ru
 <td colspan="2" valign="top">
 
 **📐 Plan it before you build it**<br>
-No code yet? Share a PRD or describe what you want to build, and get a blueprint: the same map of every piece you'd need and how they fit together, with a review of what's still undecided and a ready request to build each part.
+No code yet? Share a PRD or describe what you want to build, and get a blueprint: the same map of every piece you'd need and how they fit together, with a review of what's still undecided and a ready request to build each part. Then shape it from the map: "also plan out refunds" redraws it with the new pieces highlighted.
 
 </td>
 </tr>
@@ -198,7 +198,7 @@ Only what changed is re-read, and what you just worked on lights up under **Rece
 
 > Here's my PRD. Make me a floorplan of what we'd need to build.
 
-You get a blueprint of the planned system, marked as planned, and each part has **Build this with Claude** (or Codex) when you're ready to start.
+You get a blueprint of the planned system, marked as planned. Switch the map's Ask bar to **Change** to add or rework pieces ("also plan out refunds"), and each part has **Build this with Claude** (or Codex) when you're ready to start.
 
 ### Things to try
 

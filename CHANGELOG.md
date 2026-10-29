@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Blueprints: plan it before you build it.** Share a PRD, a spec or a description of something you want to build, and Floorplan draws the map of what it would take: every part, file, endpoint and screen, how they connect, and the outside services they rely on. It's marked as planned (dashed cards and a **Blueprint** label), Health becomes a design review of the plan (endpoints anyone could use, decisions the PRD leaves open, loose ends), and each part has **Build this with Claude** (or Codex), a ready request to build it as planned. Once the code exists, the map can switch to the real code.
+- **Blueprints: plan it before you build it.** Share a PRD, a spec or a description of something you want to build, and Floorplan draws the map of what it would take: every part, file, endpoint and screen, how they connect, and the outside services they rely on. It's marked as planned (dashed cards and a **Blueprint** label), Health becomes a design review of the plan (endpoints anyone could use, decisions the PRD leaves open, loose ends), and each part has **Build this with Claude** (or Codex), a ready request to build it as planned. Switch the Ask bar to **Change** to shape the plan from the map ("also plan out refunds"): the map redraws with the new and changed pieces highlighted, and **Undo** puts it back. Once the code exists, the map can switch to the real code.
 
 ## 0.2.2 (2026-10-28)
 
