@@ -108,14 +108,16 @@ function load() {
   const html = fs.readFileSync(path.join(here, 'index.html'), 'utf8');
   const g = JSON.parse(fs.readFileSync(path.join(here, 'graph.json'), 'utf8'));
   const coreSrc = fs.readFileSync(path.join(here, 'query.mjs'), 'utf8').split('// ---- cli ----')[0];
-  const c = new Function(`${coreSrc.replace(/^import .*$/gm, '')}; return { FLOORPLAN_ANSWER_SCHEMA, FLOORPLAN_FLOW_SCHEMA, floorplanAskInstructions, floorplanFlowInstructions, createGraphQuery };`)();
+  const c = new Function(`${coreSrc.replace(/^import .*$/gm, '')}; return { FLOORPLAN_ANSWER_SCHEMA, FLOORPLAN_FLOW_SCHEMA, FLOORPLAN_CHANGE_SCHEMA, floorplanAskInstructions, floorplanFlowInstructions, floorplanChangeInstructions, createGraphQuery };`)();
   c.q = c.createGraphQuery(g);
   page = html.replace('</head>', inject + '</head>');
   G = g; core = c;
-  // two kinds of request: a question (answer + board) or a new guided flow. Codex reads its schema from a file.
+  // kinds of request: a question (answer + board), a new guided flow, and for a blueprint, a change to the
+  // plan. Codex reads its schema from a file.
   MODES = {
     ask: { instructions: core.floorplanAskInstructions(G, 'cli'), schema: core.FLOORPLAN_ANSWER_SCHEMA, file: path.join(here, '.cache', 'answer-schema.json') },
     flow: { instructions: core.floorplanFlowInstructions(G, 'cli'), schema: core.FLOORPLAN_FLOW_SCHEMA, file: path.join(here, '.cache', 'flow-schema.json') },
+    ...(G.meta?.blueprint ? { change: { instructions: core.floorplanChangeInstructions(G), schema: core.FLOORPLAN_CHANGE_SCHEMA, file: path.join(here, '.cache', 'change-schema.json') } } : {}),
   };
   if (engine === 'codex') {
     fs.mkdirSync(path.join(here, '.cache'), { recursive: true });
@@ -222,7 +224,8 @@ function describeCommand(command) {
 }
 function describeTool(name, input = {}) {
   if (name === 'Bash') return describeCommand(input.command);
-  if (name === 'Read') return `Reading ${rel(input.file_path)}`;
+  // a long result the CLI saved to read back in parts lives outside the project
+  if (name === 'Read') return /[\\/]tool-results[\\/]/.test(input.file_path || '') ? 'Reading the rest of a long file' : `Reading ${rel(input.file_path)}`;
   if (name === 'Grep') return `Searching code for "${input.pattern}"`;
   if (name === 'Glob') return `Listing ${input.pattern}`;
   return name;
@@ -282,42 +285,159 @@ function codexRun(body, mode) {
     lastError: () => error,
   };
 }
+const CLOSED = Symbol('closed'); // the browser went away mid-request
+/** Runs the agent once for a request and resolves with its answer, streaming progress through `send`. */
+function runAgent(res, send, body) {
+  return new Promise((resolve, reject) => {
+    const run = (engine === 'codex' ? codexRun : claudeRun)(body, MODES[body.mode] || MODES.ask);
+    const child = spawn(cli.cmd, run.args, { cwd: root, env: cliEnv(), stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    const id = crypto.randomBytes(6).toString('hex');
+    running.set(id, child);
+    send('start', { id });
+    child.stdin.end(run.input);
+    let buf = '', stderr = '', done = false;
+    // working out and writing a whole updated plan has long stretches with nothing to report: say so after a quiet spell
+    let quiet = null, said = '';
+    const say = (text) => { if (!done && text !== said) { said = text; send('progress', { text }); } };
+    const hush = () => { clearTimeout(quiet); if (body.mode === 'change' && !done) quiet = setTimeout(() => say('Working on the updated plan'), 12000); };
+    const out = {
+      progress: (text) => { if (!done) { say(text); hush(); } },
+      answer: (data) => { if (!done) { done = true; clearTimeout(quiet); resolve(data); } },
+      fail: (message) => { if (!done) { done = true; clearTimeout(quiet); reject(new Error(message)); } },
+    };
+    hush();
+    child.stdout.on('data', (d) => {
+      buf += d;
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+        if (!line) continue;
+        let ev; try { ev = JSON.parse(line); } catch { continue; }
+        run.onEvent(ev, out);
+      }
+    });
+    child.stderr.on('data', (d) => { stderr = (stderr + d).slice(-2000); });
+    child.on('error', (e) => out.fail(e.message));
+    child.on('close', (code) => {
+      running.delete(id);
+      out.fail(run.lastError?.() || stderr.trim() || `${engine} exited with code ${code}`);
+    });
+    // the browser went away (closed tab, Stop): don't leave the CLI working. Note req 'close' fires as soon as
+    // the body is read, so watch the response instead.
+    res.on('close', () => { if (!done) { done = true; clearTimeout(quiet); child.kill(); reject(CLOSED); } });
+  });
+}
 function ask(req, res, body) {
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
-  const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  const send = (event, data) => { if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); };
   if (!cli) { send('failure', { code: 'cli_missing', message: `${NAME[want]} not found.` }); return res.end(); }
-  const run = (engine === 'codex' ? codexRun : claudeRun)(body, MODES[body.mode] || MODES.ask);
-  const child = spawn(cli.cmd, run.args, { cwd: root, env: cliEnv(), stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
-  const id = crypto.randomBytes(6).toString('hex');
-  running.set(id, child);
-  send('start', { id });
-  child.stdin.end(run.input);
-  let buf = '', stderr = '', done = false;
-  const out = {
-    progress: (text) => { if (!done) send('progress', { text }); },
-    answer: (data) => { if (!done) { done = true; send('answer', data); } },
-    fail: (message) => { if (!done) { done = true; send('failure', { code: failCode(message), message }); } },
-  };
-  child.stdout.on('data', (d) => {
-    buf += d;
-    let nl;
-    while ((nl = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
-      if (!line) continue;
-      let ev; try { ev = JSON.parse(line); } catch { continue; }
-      run.onEvent(ev, out);
+  if (body.mode === 'change') return changePlan(res, send, body);
+  runAgent(res, send, body)
+    .then((a) => send('answer', a), (e) => { if (e !== CLOSED) send('failure', { code: failCode(e.message), message: e.message }); })
+    .finally(() => res.end());
+}
+
+// ---------- changing a blueprint from the map ----------
+// The agent stays read-only: it returns the whole updated plan.json and architecture.json, and this server
+// checks them with the skill's plan.mjs and build.mjs (build.mjs records where they are), saves them and
+// redraws the map, which reloads every open tab. Each change keeps the files it replaced, for Undo.
+const historyDir = path.join(here, '.cache', 'history');
+const PLAN_FILES = ['plan.json', 'architecture.json', 'recent-work.json'];
+let changing = false;
+function snapshot() {
+  const dir = path.join(historyDir, Date.now().toString(36));
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of PLAN_FILES) if (fs.existsSync(path.join(here, f))) fs.copyFileSync(path.join(here, f), path.join(dir, f));
+  for (const old of fs.readdirSync(historyDir).sort().slice(0, -20)) fs.rmSync(path.join(historyDir, old), { recursive: true, force: true });
+  return dir;
+}
+function restore(dir) {
+  for (const f of PLAN_FILES) { const from = path.join(dir, f), to = path.join(here, f); if (fs.existsSync(from)) fs.copyFileSync(from, to); else fs.rmSync(to, { force: true }); }
+}
+/** Runs one of the skill's scripts on this project; throws with its output when it fails. */
+function skillScript(name, ...args) {
+  let dir;
+  try { dir = JSON.parse(fs.readFileSync(path.join(here, '.cache', 'skill.json'), 'utf8')).dir; } catch {}
+  if (!dir || !fs.existsSync(path.join(dir, 'scripts', name))) throw new Error('This map’s server can’t find the Floorplan scripts. Ask Claude Code or Codex to update the floorplan once, then try again.');
+  try { return execFileSync(process.execPath, [path.join(dir, 'scripts', name), root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 120000 }); }
+  catch (e) { throw Object.assign(new Error(String(e.stdout || '') + String(e.stderr || '') || e.message), { checks: true }); }
+}
+/** The "  - …" lines under the scripts' "✗ N error(s)" heading (warnings follow under "!"). */
+function problems(text) {
+  const out = [];
+  let inErrors = false;
+  for (const l of String(text || '').split('\n')) {
+    if (/^✗/.test(l)) inErrors = true;
+    else if (/^\S/.test(l)) inErrors = false;
+    else if (inErrors && /^\s+- /.test(l)) out.push(l.trim().slice(2));
+  }
+  return out;
+}
+/** Checks and saves an updated plan. Returns { ok, undo } or { errors } with nothing changed. */
+function applyChange(data, request, lastTry) {
+  const parse = (name, text) => { try { const v = JSON.parse(String(text || '')); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch { return null; } };
+  const plan = parse('plan', data.plan), arch = parse('architecture', data.architecture);
+  if (!plan || !arch) return { errors: [`${!plan ? 'plan' : 'architecture'} isn't a complete JSON object`] };
+  const snap = snapshot();
+  const write = (f, v) => fs.writeFileSync(path.join(here, f), JSON.stringify(v, null, 2) + '\n');
+  try {
+    write('plan.json', plan);
+    write('architecture.json', arch);
+    const items = (Array.isArray(data.changes) ? data.changes : []).filter((c) => c && typeof c.ref === 'string').map((c) => ({ ref: c.ref, change: c.change === 'changed' ? 'changed' : 'new', note: String(c.note || '') }));
+    // the Recent work panel shows plain text: the summary's first paragraph, without Markdown marks
+    const plain = String(data.summary || '').split(/\n\s*\n/)[0].replace(/\*\*|__|`/g, '').replace(/\s+/g, ' ').trim();
+    write('recent-work.json', { updatedAt: new Date().toISOString(), tasks: [{ title: String(data.title || 'Changed the plan').slice(0, 80), request, summary: plain, status: 'planned, not built', items }] });
+    skillScript('plan.mjs');
+    const check = skillScript('build.mjs', '--check');
+    const unassigned = +(/(\d+) unassigned/.exec(check)?.[1] || 0);
+    if (unassigned && !lastTry) throw Object.assign(new Error(''), { checks: true, list: [`${unassigned} planned file(s) fall under no node's paths in architecture.json (add or widen globs)`] });
+    skillScript('build.mjs', '--no-claude-md');
+    return { ok: true, undo: path.basename(snap) };
+  } catch (e) {
+    restore(snap);
+    fs.rmSync(snap, { recursive: true, force: true });
+    try { skillScript('plan.mjs'); } catch {}
+    if (!e.checks) throw e;
+    return { errors: e.list || problems(e.message).slice(0, 12).concat(problems(e.message).length ? [] : [e.message.trim().split('\n').pop()]) };
+  }
+}
+async function changePlan(res, send, body) {
+  const request = String(body.question || '').slice(0, 4000);
+  if (!MODES.change) { send('failure', { code: 'cli_error', message: 'Only a blueprint can be changed from the map.' }); return res.end(); }
+  if (changing) { send('failure', { code: 'busy', message: 'Another change to this plan is still being made. Try again when it’s done.' }); return res.end(); }
+  changing = true;
+  let session, errors = null;
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const question = errors
+        ? `Your updated plan didn't pass the checks, so nothing was saved:\n${errors.map((e) => `- ${e}`).join('\n')}\n\nFix these and reply again with the complete files. The request was: ${request}`
+        : request;
+      const data = await runAgent(res, send, { question, session, mode: 'change' });
+      session = data.session || session;
+      send('progress', { text: 'Checking the updated plan' });
+      const r = applyChange(data, request, attempt === 1);
+      if (r.ok) {
+        console.log(`plan changed: ${data.title || request.slice(0, 60)}`);
+        send('answer', { title: String(data.title || ''), summary: String(data.summary || ''), changes: (data.changes || []).length, followups: Array.isArray(data.followups) ? data.followups.map(String).slice(0, 3) : [], undo: r.undo });
+        return;
+      }
+      errors = r.errors;
+      send('progress', { text: `Fixing ${errors.length === 1 ? 'a problem' : `${errors.length} problems`} the checks found` });
     }
-  });
-  child.stderr.on('data', (d) => { stderr = (stderr + d).slice(-2000); });
-  child.on('error', (e) => { out.fail(e.message); res.end(); });
-  child.on('close', (code) => {
-    running.delete(id);
-    out.fail(run.lastError?.() || stderr.trim() || `${engine} exited with code ${code}`);
-    res.end();
-  });
-  // the browser went away (closed tab, Stop): don't leave the CLI working. Note req 'close' fires as soon as
-  // the body is read, so watch the response instead.
-  res.on('close', () => { if (!done) child.kill(); });
+    send('failure', { code: 'change_invalid', message: `The updated plan didn't pass the checks, so nothing changed:\n${errors.slice(0, 6).map((e) => `- ${e}`).join('\n')}` });
+  } catch (e) {
+    if (e !== CLOSED) send('failure', { code: failCode(String(e.message || e)), message: String(e.message || e) });
+  } finally { changing = false; res.end(); }
+}
+/** Puts back the files a change replaced (the newest first), and redraws. */
+function undoChange() {
+  const all = fs.existsSync(historyDir) ? fs.readdirSync(historyDir).sort() : [];
+  if (!all.length) return { ok: false, error: 'Nothing to undo.' };
+  const dir = path.join(historyDir, all[all.length - 1]);
+  restore(dir);
+  try { skillScript('plan.mjs'); skillScript('build.mjs', '--no-claude-md'); } catch (e) { return { ok: false, error: String(e.message || e).slice(0, 500) }; }
+  fs.rmSync(dir, { recursive: true, force: true });
+  return { ok: true, left: all.length - 1 };
 }
 
 // ---------- http ----------
@@ -372,6 +492,10 @@ const server = http.createServer((req, res) => {
         });
         return;
       }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/plan/undo') {
+      const r = changing ? { ok: false, error: 'A change is still being made.' } : undoChange();
+      res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(r));
     }
     if (req.method === 'POST' && url.pathname === '/api/cancel') { for (const c of running.values()) c.kill(); res.writeHead(204); return res.end(); }
     if (req.method === 'POST' && url.pathname === '/api/ask') {
