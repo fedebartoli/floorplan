@@ -246,7 +246,7 @@ More in [Privacy and security](docs/privacy-and-security.md).
 
 | | |
 |---|---|
-| [Getting started](docs/getting-started.md) | Install, first map, updating, removing |
+| [Getting started](docs/getting-started.md) | Install, first map, updating, planning from a PRD, removing |
 | [Floorplan in Codex](docs/codex.md) | Installing and using it in Codex |
 | [Using the map](docs/using-the-map.md) | Every button, view, shortcut and menu |
 | [How it works](docs/how-it-works.md) | The pipeline, connection matching, refreshes |
