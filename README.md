@@ -98,17 +98,13 @@ Updates re-read only what changed, and an open map reloads itself. Everything ru
 
 </td>
 </tr>
-<tr>
-<td colspan="2" valign="top">
-
-**📐 Plan it before you build it**<br>
-No code yet? Share a PRD or describe what you want to build, and get a blueprint: the same map of every piece you'd need and how they fit together, with a review of what's still undecided and a ready request to build each part. Then shape it from the map: "also plan out refunds" redraws it with the new pieces highlighted.
-
-</td>
-</tr>
 </table>
 
 Plus guided **flows** you can request in plain words, a one-minute **Start here** tour, search, keyboard shortcuts, and right-click actions on every card.
+
+### Also: blueprints, for apps you haven't built yet
+
+Floorplan is made for mapping code you already have. It can also start from a PRD, a spec or a description of something you want to build, and draw a **blueprint**: the same kind of map, showing every part, file, endpoint and screen you'd need and how they'd fit together. Cards are dashed to show it's a plan. Instead of a Health check you get a review of what the plan still leaves open, each part has a ready request to build it, and you can reshape the plan from the map ("also plan out refunds"). Once the code exists, the blueprint becomes a map of the real thing. See [Plan something you haven't built yet](docs/getting-started.md#plan-something-you-havent-built-yet).
 
 ## See it in action
 
@@ -194,11 +190,11 @@ When you've done more work, ask:
 
 Only what changed is re-read, and what you just worked on lights up under **Recent work**.
 
-**Planning something new?** Ask:
+**No code yet?** Floorplan can plan an app from a PRD or spec instead. Share the document and ask:
 
 > Here's my PRD. Make me a floorplan of what we'd need to build.
 
-You get a blueprint of the planned system, marked as planned. Switch the map's Ask bar to **Change** to add or rework pieces ("also plan out refunds"), and each part has **Build this with Claude** (or Codex) when you're ready to start.
+You get a [blueprint](#also-blueprints-for-apps-you-havent-built-yet) of the planned system, clearly marked as a plan.
 
 ### Things to try
 
@@ -209,7 +205,6 @@ You get a blueprint of the planned system, marked as planned. Switch the map's A
 | "Fix the important issues from the floorplan's Health check" | "If I change the users table, what breaks?" |
 | "Add a flow showing how a new user signs up" | "Which files handle login?" |
 | "Rewrite the floorplan for developers" | "What did we change for refunds?" |
-| "Here's my PRD: make me a blueprint" | "What do I need to build for payments?" |
 
 ## How it works
 
@@ -291,6 +286,12 @@ Yes. Just ask ("rename 'Main server' to 'Shop API' on the floorplan"), or edit `
 <summary><b>Does it work with Codex as well as Claude Code?</b></summary>
 
 Yes. It's the same plugin, the same map and the same Health check. Each app runs it on your own plan: Claude Code on your Claude account, Codex on your ChatGPT sign-in. A map made in one opens fine with the other. See [Floorplan in Codex](docs/codex.md).
+</details>
+
+<details>
+<summary><b>Can I use it before I've written any code?</b></summary>
+
+Yes, though mapping existing code is what it's mainly for. Share a PRD, a spec or a description of your app and ask for a floorplan, and you get a blueprint: a map of what you'd need to build, marked as a plan, with a review of the decisions still open. You can change it from the map, then switch to a map of the real code once it's built. See [Plan something you haven't built yet](docs/getting-started.md#plan-something-you-havent-built-yet).
 </details>
 
 <details>

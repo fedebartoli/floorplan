@@ -61,7 +61,7 @@ Floorplan re-scans and compares with the last map. Moved files keep their descri
 
 ## Plan something you haven't built yet
 
-Floorplan can also draw the map of an app that doesn't exist yet. Open the folder you'll build it in (an empty one is fine), and share a PRD, a spec or a description of what you want:
+Everything above is about Floorplan's main job: mapping code that already exists. It has a second use, for when there's no code yet: drawing a **blueprint** of an app from a PRD, a spec or a description of what you want to build. Open the folder you'll build it in (an empty one is fine), share the document, and ask:
 
 > Here's my PRD. Make me a floorplan of what we'd need to build.
 

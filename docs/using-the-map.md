@@ -83,7 +83,7 @@ Type into the Ask bar at the bottom and press **Enter**. Claude or Codex answers
 
 ## Blueprints
 
-A blueprint is a map planned from a PRD or a description, before the code exists (see [Getting started](getting-started.md#plan-something-you-havent-built-yet)). It works like any other map, with a few differences:
+Everything above describes a map of existing code, which is what most maps are. A blueprint is the other kind: a map planned from a PRD or a spec before the code exists (see [Getting started](getting-started.md#plan-something-you-havent-built-yet)). It works the same way, with a few differences:
 
 - **Dashed cards and a Blueprint label** beside the board's title show it's a plan. With nothing selected, the panel says which document it was planned from, the stack and the assumptions made.
 - **Review** replaces Health. It's a design review of the plan: endpoints anyone could use to change data, endpoints with no decision on who may use them, questions the PRD leaves open, and pieces nothing connects to. Each item has **Show on map** and **Resolve on the map**, which switches the Ask bar to Change and fills in a request to settle it. For an open question, type your answer after "My answer:" and press **Enter**. (When the map isn't served, the button is **Resolve with Claude** or **Resolve with Codex**, a request to paste instead.)
