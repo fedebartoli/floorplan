@@ -136,7 +136,9 @@ test('on Windows, a Claude Code npm install with only bin/claude.exe is found an
   const pkg = path.join(npm, 'node_modules', '@anthropic-ai', 'claude-code', 'bin');
   fs.mkdirSync(pkg, { recursive: true });
   fs.writeFileSync(path.join(npm, 'claude'), '#!/bin/sh\n'); // the shim: a text file that can't be run
-  try { fs.linkSync(process.execPath, path.join(pkg, 'claude.exe')); } catch { fs.copyFileSync(process.execPath, path.join(pkg, 'claude.exe')); } // a program that answers --version
+  const fakeExe = path.join(pkg, 'claude.exe');
+  fs.copyFileSync(process.execPath, fakeExe); // a program that answers --version (a copy, not a link: a link can't be removed afterwards on some Windows runners)
+  fs.chmodSync(fakeExe, 0o666); // the copy keeps Node's read-only flag, which stops the folder being cleaned up
   const s = await serve({ FLOORPLAN_CLAUDE: path.join(npm, 'claude'), FLOORPLAN_CODEX: path.join(root, 'no-such-cli') });
   assert.equal(s.page.engine, 'claude');
   assert.equal(s.page.version, process.version);
