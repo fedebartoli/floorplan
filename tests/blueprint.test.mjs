@@ -30,7 +30,7 @@ function withPlan(change) {
 const fails = (fn) => { try { fn(); } catch (e) { return String(e.stdout || '') + String(e.stderr || ''); } assert.fail('expected the script to fail'); };
 
 test('the planned files and endpoints are on the map, named as the plan names them', () => {
-  assert.match(planOut, /BLUEPRINT {2}21 planned files · 11 endpoints · 9 calls matched · 5 links to services and data/);
+  assert.match(planOut, /BLUEPRINT {2}21 planned files · 11 endpoints · 9 calls to planned endpoints · 5 links to services and data/);
   assert.equal(graph.files.length, 21);
   assert.equal(graph.files.filter((f) => f.auto).length, 0, 'every file is described');
   assert.equal(graph.routes.length, 11);
@@ -66,14 +66,15 @@ test('Health is a design review of the plan', () => {
   const issues = graph.health.issues;
   const titles = issues.map((i) => `${i.severity} ${i.title}`);
   assert.deepEqual(titles, [
-    'medium Anyone could change data through 2 planned endpoints',
+    'medium Anyone could change data through one planned endpoint',
     'medium The plan doesn’t say who may use one endpoint',
     'medium Can owners cancel a walk for free, and up to when?',
     'low Nothing in the plan uses one endpoint',
     'low One planned file isn’t connected to anything',
   ]);
   const routesOf = (i) => i.items.filter((id) => id.startsWith('r:')).map((id) => `${graph.routes[+id.slice(2)].m} ${graph.routes[+id.slice(2)].p}`).sort();
-  assert.deepEqual(routesOf(issues[0]), ['POST /api/auth/login', 'POST /api/auth/signup']);
+  // sign-in is open on purpose (publicBecause says why), so only sign-up is flagged
+  assert.deepEqual(routesOf(issues[0]), ['POST /api/auth/signup']);
   assert.deepEqual(routesOf(issues[1]), ['DELETE /api/walkers/:id']);
   assert.deepEqual(issues[2].items.sort(), ['f:web/app/bookings/page.tsx', `r:${graph.routes.findIndex((r) => r.p === '/api/bookings/:id/cancel')}`].sort());
   assert.deepEqual(routesOf(issues[3]), ['DELETE /api/walkers/:id']);
@@ -91,6 +92,23 @@ test('the map page marks it as a blueprint, and Ask knows there is no code to re
   assert.ok(!fs.existsSync(path.join(root, 'CLAUDE.local.md')));
 });
 
+test('an endpoint says which signed-in people may use it', () => {
+  const r = graph.routes.find((x) => x.p === '/api/walker/schedule');
+  assert.equal(r.access, 'signed-in');
+  assert.equal(r.who, 'walkers');
+  assert.match(graph.routes.find((x) => x.p === '/api/auth/login').publicBecause, /sign in before they are signed in/);
+});
+
+test('a project holding only plan.json can be planned before architecture.json exists', () => {
+  const r = makeProject({ 'PRD.md': '# A plan' });
+  try {
+    fs.mkdirSync(path.join(r, 'floorplan'));
+    fs.copyFileSync(path.join(FIXTURE, 'floorplan', 'plan.json'), path.join(r, 'floorplan', 'plan.json'));
+    assert.match(run('status.mjs', r), /a blueprint was started \(plan\.json\) but never drawn/);
+    assert.match(run('plan.mjs', r), /run build\.mjs once floorplan\/architecture\.json is written/);
+  } finally { cleanup(r); }
+});
+
 test('plan.mjs names what is wrong with a plan', () => {
   const r = withPlan((p) => {
     p.files[0].uses.push('web/components/WalkerCrad.tsx');
@@ -98,22 +116,31 @@ test('plan.mjs names what is wrong with a plan', () => {
     p.endpoints[1].file = 'api/src/routes/walker.ts';
     p.files[1].calls.push('POST /api/payments');
     p.files[2].calls.push('cancel it');
+    p.endpoints[2].access = 'staff';
+    p.files.find((f) => f.services).services = ['strpe'];
   });
   try {
     const out = fails(() => run('plan.mjs', r));
     assert.match(out, /files "web\/app\/page\.tsx"\.uses "web\/components\/WalkerCrad\.tsx" is not one of the planned files/);
-    assert.match(out, /access "everyone" must be one of public, signed-in, staff, webhook, internal/);
+    assert.match(out, /access "everyone" must be one of public, signed-in, team, webhook, internal/);
     assert.match(out, /\.file "api\/src\/routes\/walker\.ts" is not one of the planned files/);
     assert.match(out, /calls "cancel it" must look like "POST \/api\/orders"/);
     assert.match(out, /calls "POST \/api\/payments" matches no planned endpoint/);
+    assert.match(out, /access "staff" must be one of .* \("team" is your own team; for some of the app’s users, use "signed-in" with "who"\)/);
+    assert.match(out, /services "strpe" is not a node id in architecture\.json \(did you mean "stripe"\?\)/);
   } finally { cleanup(r); }
 });
 
 test('build.mjs catches a service that is not a node', () => {
   const r = withPlan((p) => { p.files.find((f) => f.services).services = ['strpe']; });
   try {
+    // plan.mjs checks this when architecture.json exists; without it, the build is the safety net
+    const arch = path.join(r, 'floorplan', 'architecture.json'), saved = fs.readFileSync(arch);
+    fs.rmSync(arch);
     run('plan.mjs', r);
+    fs.writeFileSync(arch, saved);
     const out = fails(() => run('build.mjs', r, '--no-claude-md'));
+    assert.match(out, /error\(s\) in floorplan.architecture\.json or plan\.json/);
     assert.match(out, /names "strpe" in its services, which is not a node id in architecture\.json — did you mean "stripe"\?/);
   } finally { cleanup(r); }
 });

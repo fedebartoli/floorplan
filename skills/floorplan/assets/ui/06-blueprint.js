@@ -7,6 +7,7 @@
   const BP = SC && SC.graph.meta.blueprint;
   if (!BP) return;
   const { h } = SC;
+  const Cap = (t) => t[0].toUpperCase() + t.slice(1);
   const A = SC.agent || { name: 'Claude', app: 'Claude Code' };
   const G = SC.graph;
 
@@ -30,7 +31,10 @@
   SC.on('render', addPill);
   SC.on('ready', addPill);
 
-  const ACCESS = { public: 'anyone', 'signed-in': 'signed-in users', staff: 'staff', webhook: 'the service that sends it, which must prove it', internal: 'only our own services' };
+  const ACCESS = { public: 'anyone', 'signed-in': 'signed-in users', team: 'only the team that runs the service', webhook: 'the service that sends it, which must prove it', internal: 'only our own services' };
+  /** "for signed-in users: managers of that location", or the open question when nobody decided. */
+  const whoMay = (r) => !r.access ? 'who may use it isn’t decided yet: ask me'
+    : `for ${r.access === 'signed-in' && r.who ? r.who : ACCESS[r.access] || r.access}${r.publicBecause ? `, because ${r.publicBecause.replace(/\.$/, '')}` : ''}`;
 
   SC.addPanelSection('overview', () => ({
     html: `<div class="sec"><h3>Blueprint</h3>
@@ -63,7 +67,7 @@
       `\nFiles to create:`,
       ...fl.map((f) => `- ${f.p}: ${f.name}${f.d ? `. ${f.d}` : ''}`),
       eps.length ? `\nEndpoints to create (keep the method, path and who may use them exactly as planned):` : '',
-      ...eps.map((r) => `- ${r.m} ${r.p} (${r.access ? `for ${ACCESS[r.access] || r.access}` : 'who may use it isn’t decided yet: ask me'}): ${r.name}${r.d ? `. ${r.d}` : ''}`),
+      ...eps.map((r) => `- ${r.m} ${r.p} (${whoMay(r)}): ${r.name}${r.d ? `. ${r.d}` : ''}`),
       deps.size ? `\nIt relies on: ${[...deps.values()].join('; ')}.` : '',
       questions.length ? `\nStill undecided (ask me before building what depends on it):\n${questions.map((q) => `- ${q}`).join('\n')}` : '',
       `\nBefore writing code, read these parts of plan.json, and check which of the things it relies on exist yet; if some don't, tell me and suggest what to build first. Keep the plan's file paths and names. If the plan looks wrong or incomplete for this part, tell me before changing it. When it's done, run it or its tests and tell me how to try it.`,
@@ -72,6 +76,13 @@
 
   SC.addPanelSection('item', (id) => {
     if (!id || typeof id !== 'string') return '';
+    // an endpoint: who the plan lets use it
+    if (id.startsWith('r:')) {
+      const r = SC.routes[+id.slice(2)];
+      if (!r) return '';
+      const text = !r.access ? 'Not decided yet. The design review lists it.' : `${Cap(r.access === 'signed-in' && r.who ? r.who : ACCESS[r.access] || r.access)}.${r.publicBecause ? ` Open on purpose: ${r.publicBecause}` : ''}`;
+      return `<div class="sec"><h3>Who may use it</h3><p class="pd">${h(text)}</p></div>`;
+    }
     const i = SC.info(id);
     if (!i || (i.type === 'node' && i.n.kind === 'external') || !filesIn(id).length) return '';
     return {

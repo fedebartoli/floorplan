@@ -339,7 +339,7 @@ for (const f of included) {
 const pct = included.length ? (unassigned.length / included.length) * 100 : 0;
 const report = [];
 if (errors.length) {
-  report.push(`✗ ${errors.length} error(s) in ${path.relative(root, archFile)}:`);
+  report.push(`✗ ${errors.length} error(s) in ${path.relative(root, archFile)}${scan.blueprint ? ' or plan.json' : ''}:`);
   for (const e of errors) report.push(`  - ${e}`);
 }
 if (warnings.length) {
@@ -405,7 +405,7 @@ const graph = {
   }),
   routes: routesIn.map((r) => {
     const d = routeDesc.get(routeKey(r));
-    return { f: r.file, m: r.method, p: r.path, l: r.line, h: r.handler || null, name: d?.name || r.name || fallbackRouteName(r), d: d?.d || r.desc || r.doc || '', ...(d?.d || r.desc ? {} : { auto: true }), ...(d?.review ? { review: d.review } : {}), ...(r.doc ? { doc: r.doc } : {}), ...(r.access ? { access: r.access } : {}) };
+    return { f: r.file, m: r.method, p: r.path, l: r.line, h: r.handler || null, name: d?.name || r.name || fallbackRouteName(r), d: d?.d || r.desc || r.doc || '', ...(d?.d || r.desc ? {} : { auto: true }), ...(d?.review ? { review: d.review } : {}), ...(r.doc ? { doc: r.doc } : {}), ...(r.access ? { access: r.access } : {}), ...(r.who ? { who: r.who } : {}), ...(r.publicBecause ? { publicBecause: r.publicBecause } : {}) };
   }),
   links: [...links.values()],
   flows: outFlows,

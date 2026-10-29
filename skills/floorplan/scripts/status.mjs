@@ -13,7 +13,8 @@ try {
   const graphFile = path.join(dir, 'graph.json');
   const hasArch = fs.existsSync(path.join(dir, 'architecture.json'));
   if (!fs.existsSync(graphFile)) {
-    console.log(hasArch ? 'architecture.json exists but was never built: run build.mjs.' : 'none: no floorplan here yet (fresh run).');
+    const hasPlan = fs.existsSync(path.join(dir, 'plan.json'));
+    console.log(hasPlan ? 'a blueprint was started (plan.json) but never drawn: write architecture.json if it is missing, then run plan.mjs and build.mjs.' : hasArch ? 'architecture.json exists but was never built: run build.mjs.' : 'none: no floorplan here yet (fresh run).');
     process.exit(0);
   }
   const g = JSON.parse(fs.readFileSync(graphFile, 'utf8'));

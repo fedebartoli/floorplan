@@ -11,7 +11,8 @@ import path from 'node:path';
 import { classify, toPosix } from './common.mjs';
 import { matchCalls } from './routes.mjs';
 
-export const ACCESS = ['public', 'signed-in', 'staff', 'webhook', 'internal'];
+// who may use an endpoint. "team" is the people who run the service (its own admin pages), not the app's users.
+export const ACCESS = ['public', 'signed-in', 'team', 'webhook', 'internal'];
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'CALL', 'ANY'];
 const WRITE = new Set(['POST', 'PUT', 'PATCH', 'DELETE', 'CALL']);
 const isStr = (v) => typeof v === 'string' && v.trim().length > 0;
@@ -58,9 +59,11 @@ export function planToScan(plan, root) {
     const key = routeKey(method, e.path);
     if (seen.has(key)) return err(`${where} duplicates an earlier endpoint`);
     seen.add(key);
-    if (e.access !== undefined && !ACCESS.includes(e.access)) err(`${where}.access "${e.access}" must be one of ${ACCESS.join(', ')}`);
+    if (e.access !== undefined && !ACCESS.includes(e.access)) err(`${where}.access "${e.access}" must be one of ${ACCESS.join(', ')}${e.access === 'staff' ? ' ("team" is your own team; for some of the app’s users, use "signed-in" with "who")' : ''}`);
+    if (e.who !== undefined && !isStr(e.who)) err(`${where}.who must be a few words, e.g. "managers of that location"`);
+    if (e.publicBecause !== undefined && !isStr(e.publicBecause)) err(`${where}.publicBecause must say why it is open to anyone`);
     if (ACCESS.includes(e.access)) access[key] = e.access;
-    routes.push({ file, method, path: e.path, line: 0, ...(ACCESS.includes(e.access) ? { access: e.access } : {}), ...(isStr(e.name) ? { name: e.name.trim() } : {}), ...(isStr(e.description) ? { desc: e.description.trim() } : {}) });
+    routes.push({ file, method, path: e.path, line: 0, ...(ACCESS.includes(e.access) ? { access: e.access } : {}), ...(isStr(e.who) ? { who: e.who.trim() } : {}), ...(isStr(e.publicBecause) ? { publicBecause: e.publicBecause.trim() } : {}), ...(isStr(e.name) ? { name: e.name.trim() } : {}), ...(isStr(e.description) ? { desc: e.description.trim() } : {}) });
   });
   const routeKeys = new Set(routes.map((r) => routeKey(r.method, r.path)));
 
@@ -147,7 +150,8 @@ export function buildPlanHealth({ graph, scan }) {
 
   // ---------- who may call each endpoint ----------
   const accessOf = (r) => bp.access?.[routeKey(r.m, r.p)];
-  const openWrites = routes.map((r, i) => ({ r, i })).filter(({ r }) => accessOf(r) === 'public' && WRITE.has(r.m));
+  // open on purpose, with a reason (publicBecause), counts as reviewed
+  const openWrites = routes.map((r, i) => ({ r, i })).filter(({ r }) => accessOf(r) === 'public' && WRITE.has(r.m) && !r.publicBecause);
   if (openWrites.length) issues.push({
     id: 'plan-open-writes', kind: 'unprotected-endpoint', severity: 'medium',
     title: openWrites.length === 1 ? 'Anyone could change data through one planned endpoint' : `Anyone could change data through ${openWrites.length} planned endpoints`,
@@ -155,17 +159,17 @@ export function buildPlanHealth({ graph, scan }) {
     items: openWrites.slice(0, 24).map(({ i }) => 'r:' + i),
     notes: Object.fromEntries(openWrites.slice(0, 24).map(({ i }) => ['r:' + i, 'Planned as open to anyone, and changes data'])),
     locations: [],
-    fix: [`Design review of floorplan/plan.json: these planned endpoints change data and are marked "access": "public":`, ...openWrites.map(({ r }) => line(r)), ``, `For each one, tell me in plain words whether a stranger should really be able to use it. Where they shouldn't, change its access to "signed-in" or "staff" in plan.json. Where it must stay public (sign-up, guest checkout), add a note on what limits abuse (rate limits, a CAPTCHA, email confirmation) to the endpoint's description. Ask me if you're unsure.`, rebuild].join('\n'),
+    fix: [`Design review of floorplan/plan.json: these planned endpoints change data and are marked "access": "public":`, ...openWrites.map(({ r }) => line(r)), ``, `For each one, tell me in plain words whether a stranger should really be able to use it. Where they shouldn't, change its access to "signed-in" (with "who" if only some users may) in plan.json. Where it must stay public (sign-in, sign-up, guest checkout), set "publicBecause" to why, including what limits abuse (rate limits, a CAPTCHA, email confirmation). Ask me if you're unsure.`, rebuild].join('\n'),
   });
   const unknown = routes.map((r, i) => ({ r, i })).filter(({ r }) => !accessOf(r));
   if (unknown.length) issues.push({
     id: 'plan-no-access', kind: 'unprotected-endpoint', severity: 'medium',
     title: unknown.length === 1 ? 'The plan doesn’t say who may use one endpoint' : `The plan doesn’t say who may use ${unknown.length} endpoints`,
-    detail: `Deciding who can use each part of the system now (anyone, signed-in customers, staff, another service) is much easier than adding sign-in checks after it's built.`,
+    detail: `Deciding who can use each part of the system now (anyone, signed-in customers, only managers, your own team, another service) is much easier than adding sign-in checks after it's built.`,
     items: unknown.slice(0, 24).map(({ i }) => 'r:' + i),
     notes: Object.fromEntries(unknown.slice(0, 24).map(({ i }) => ['r:' + i, 'Who may use this isn’t decided'])),
     locations: [],
-    fix: [`Design review of floorplan/plan.json: these planned endpoints have no "access" set:`, ...unknown.map(({ r }) => line(r)), ``, `For each, choose who may use it: "public" (anyone), "signed-in", "staff", "webhook" (another company's service, which must prove it's them) or "internal" (only our own services). Base it on the PRD; ask me where the PRD doesn't say.`, rebuild].join('\n'),
+    fix: [`Design review of floorplan/plan.json: these planned endpoints have no "access" set:`, ...unknown.map(({ r }) => line(r)), ``, `For each, choose who may use it: "public" (anyone), "signed-in" (plus "who" when only some users may, such as "managers of that location"), "team" (only the people who run the service), "webhook" (another company's service, which must prove it's them) or "internal" (only our own services). Base it on the PRD; ask me where the PRD doesn't say.`, rebuild].join('\n'),
   });
 
   // ---------- open questions from the PRD ----------

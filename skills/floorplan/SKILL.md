@@ -26,10 +26,10 @@ If the user wants to plan something they haven't built ("here's my PRD", "I want
 1. **Read the input.** A PRD file, a pasted message, or a document they point you at. Ask 2–3 questions only if something fundamental is open (who uses it, web or mobile, does anyone sign in, does money change hands); otherwise decide and record it as an assumption.
 2. **Read [references/blueprint.md](references/blueprint.md)**, then [references/schema.md](references/schema.md) for architecture.json.
 3. **Write `floorplan/plan.json`**: every planned file and endpoint, what each screen calls, which outside services and data each part uses, who may use each endpoint, your assumptions and the open questions. If the PRD is only in the chat, save it as `docs/prd.md` and use that as `source`, so the map and later questions can refer back to it.
-4. **Run `node ${CLAUDE_SKILL_DIR}/scripts/plan.mjs <root>`.** Fix what it reports and run it again until it's clean.
-5. **Write `floorplan/architecture.json`** as for a code map (parts, external nodes, 1–3 flows for the PRD's main user stories, a tour), with globs covering the planned paths. Plain language for everyone, as in step 4 below.
-6. **Run build.mjs** (step 5 below), then **show it** with open.mjs (step 8). Skip describe.mjs and recent.mjs: names and descriptions come from plan.json.
-7. **Report:** the shape of the system in 3–5 lines, the stack you chose, your main assumptions, and the design review's questions and warnings. Tell them each part has **Build this with Claude** (or Codex) for a ready request to build just that part, and that they can ask you to change the plan.
+4. **Write `floorplan/architecture.json`** as for a code map (parts, external nodes for the services and data plan.json names, 1–3 flows for the PRD's main user stories, a tour), with globs covering the planned paths. Plain language for everyone, as in step 4 below.
+5. **Run `node ${CLAUDE_SKILL_DIR}/scripts/plan.mjs <root>`, then build.mjs** (step 5 below). Fix what they report until both are clean. Skip describe.mjs and recent.mjs: names and descriptions come from plan.json. A blueprint adds no notes to CLAUDE.local.md, since there's no code to look up yet.
+6. **Show it** with open.mjs (step 8).
+7. **Report** (instead of step 8's report): the URL; the shape of the system in 3–5 lines; the stack you chose; your main assumptions; and the design review's questions and warnings. Tell them each part has **Build this with Claude** (or Codex) for a ready request to build just that part, that plan.json and architecture.json are theirs to edit or to ask you to change, and that the map stays out of git.
 
 To change a blueprint, edit plan.json and architecture.json and run `refresh.mjs`, which redraws it from plan.json. Once the code exists and the user wants a map of it, run `refresh.mjs <root> --from-code`, then carry on as for a refresh. plan.json stays where it is.
 

@@ -12,12 +12,12 @@ Contents: [Planning well](#planning-well) · [plan.json](#planjson) · [Checks](
 
 ## Planning well
 
-- **Plan to the level of files and endpoints**, not just boxes. Screens, the design review and the build prompts all depend on it. A small product is typically 15–60 files and 10–40 endpoints. Don't plan every helper: one file per page, per group of endpoints, per outside service and per kind of saved data is about right.
+- **Plan to the level of files and endpoints**, not just boxes. Screens, the design review and the build prompts all depend on it. A small product is typically 15–60 files and 10–40 endpoints. Don't plan every helper: one file per page, per group of endpoints, per outside service and per kind of saved data is about right. Where the stack puts one handler per URL (Next.js `route.ts`, SvelteKit `+server.ts`), plan it that way; more files is fine.
 - **Pick a sensible, common stack** unless the PRD names one, and list it in `stack`. Prefer what a solo builder working with AI would choose: a Next.js or React website, a Node or Python server, Postgres, Stripe, a hosted email service. Use real, conventional paths for that stack (`web/app/checkout/page.tsx`, `api/src/routes/orders.ts`).
 - **Every screen the PRD describes is a file with a `screen` URL.** Give each screen `calls` for the endpoints it uses and `uses` for the parts it's built from.
-- **Every endpoint gets `access`.** Decide it from the PRD. If the PRD is silent and it matters, leave it out (the review will flag it) or add a question.
-- **Don't invent requirements.** Where the PRD doesn't say and you had to choose, write the choice in `assumptions`. Where the answer changes what gets built and you can't reasonably choose, add it to `questions` with the parts it affects. Ask the user 2–3 questions up front only if the PRD leaves something fundamental open (who uses it, web or mobile, does anyone sign in, does money change hands).
-- **Outside services and data stores are `external` nodes** in architecture.json (Stripe, the database, an email service). Files reach them through `services` and `data` in plan.json.
+- **Every endpoint gets `access`**, and `who` when only some signed-in people may use it ("managers of that location", "the account owner"). Decide it from the PRD. If the PRD is silent and it matters, leave it out (the review will flag it) or add a question. An endpoint that must be open to anyone and changes data (sign-in codes, sign-up, guest checkout) gets `publicBecause`: why, and what stops abuse.
+- **Don't invent requirements.** Where the PRD doesn't say and you had to choose, write the choice in `assumptions`. Where the answer changes what gets built and you can't reasonably choose, add it to `questions` with the parts it affects. Carry every open question the PRD lists into `questions` unless the PRD settles it elsewhere; if you planned around the likely answer, say so in `assumptions` too. Ask the user 2–3 questions up front only if the PRD leaves something fundamental open (who uses it, web or mobile, does anyone sign in, does money change hands).
+- **Outside services and data stores are `external` nodes** in architecture.json (Stripe, the database, an email service). Files reach them through `services` and `data` in plan.json. Put `data` on the files that talk to the database directly (a database helper, or each data-access file), not on every file that uses them: Screens follow `uses` down to them.
 - **Background work** (scheduled emails, nightly jobs, queue workers) gets its own files and a `worker` node.
 
 ## plan.json
@@ -63,13 +63,17 @@ Contents: [Planning well](#planning-well) · [plan.json](#planjson) · [Checks](
 | `path` | the URL, starting with `/`. Use `:name` for parts that change (`/api/orders/:id`) |
 | `file` | the planned file that handles it. Required |
 | `name`, `description` | as for files |
-| `access` | who may use it: `public` (anyone), `signed-in`, `staff`, `webhook` (another company's service, which must prove it's them) or `internal` (only your own services) |
+| `access` | who may use it: `public` (anyone), `signed-in`, `team` (only the people who run the service, for its own admin pages, not the app's users), `webhook` (another company's service, which must prove it's them) or `internal` (only your own services) |
+| `who` | with `signed-in`: which signed-in people, in a few words ("managers of that location", "the account owner"). Leave it out when any signed-in user may |
+| `publicBecause` | with `public`: why it has to be open, and what limits abuse ("sign-in has to work before anyone is signed in; 5 codes per number per hour"). The design review stops flagging an open endpoint that has one |
 
-Node `paths` globs in architecture.json assign planned files to parts, the same as for code. Aim for no unassigned files.
+Node `paths` globs in architecture.json assign planned files to parts, the same as for code. Aim for no unassigned files. Folder names in brackets (`app/orders/[id]/**`) match literally.
+
+plan.mjs's "calls to planned endpoints" counts each call; the build's "http" links count each caller-to-file connection plus links to outside services, so the two numbers differ.
 
 ## What the design review checks
 
-- endpoints that change data and are open to anyone (worth a second look, though sign-up and guest checkout are legitimate);
+- endpoints that change data and are open to anyone, unless `publicBecause` explains why;
 - endpoints with no `access` decided;
 - every open question, pointing at the parts it affects;
 - endpoints no planned screen or service calls;
