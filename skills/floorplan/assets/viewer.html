@@ -138,6 +138,8 @@ header > * { pointer-events: auto; }
 #stage { position: fixed; inset: 0; overflow: hidden; background-color: var(--bg); background-image: radial-gradient(var(--grid) 1px, transparent 1px); background-size: 24px 24px; }
 #svg { width: 100%; height: 100%; display: block; cursor: grab; user-select: none; }
 #svg.panning { cursor: grabbing; }
+#svg { touch-action: none; } /* a finger drags the map instead of the browser taking the touch; only affects touch */
+@media (pointer: coarse) { html, body { overscroll-behavior: none; } } /* no bounce of the page under the map */
 #viewport { transform-origin: 0 0; }
 #viewport.anim { transition: transform .5s var(--ease), opacity .35s var(--ease); }
 #context { position: absolute; left: 24px; top: calc(var(--hh, 64px) + 8px); max-width: min(520px, calc(100% - var(--pw) - 64px)); pointer-events: none; transition: opacity .3s var(--ease); }
@@ -1274,17 +1276,58 @@ svg.addEventListener('wheel', (ev) => {
   else zoomBy(Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0018)), ev.clientX - r.left, ev.clientY - r.top);
 }, { passive: false });
 let drag = null;
-svg.addEventListener('pointerdown', (ev) => { if (ev.button !== 0) return; drag = { x: ev.clientX, y: ev.clientY, tx: state.t.x, ty: state.t.y, moved: false }; });
+const fingers = new Map(); let pinch = null; // touch only: the fingers on the map, and the pinch they make
+let swallowClick = false; // touch screens don't reliably send a click after a drag or pinch, so a flag (cleared at the next touch) stops the end of a gesture selecting a box
+svg.addEventListener('click', (e) => { if (swallowClick) { swallowClick = false; e.stopPropagation(); } }, true);
+svg.addEventListener('pointerdown', (ev) => {
+  if (ev.button !== 0) return;
+  if (ev.pointerType === 'touch') {
+    if (fingers.size >= 2) return; // a third finger is ignored
+    fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); swallowClick = false; vp.classList.remove('anim'); // a glide still running would keep moving the map under the finger
+    if (fingers.size === 2) { if (drag?.moved) swallowClick = true; drag = null; svg.classList.remove('panning'); hideTip(); pinch = { ...pinchNow(), t: { ...state.t }, moved: false }; return; }
+  }
+  drag = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, tx: state.t.x, ty: state.t.y, moved: false };
+});
 window.addEventListener('pointermove', (ev) => {
-  if (!drag) return;
+  if (!drag || ev.pointerId !== drag.id) return; // only the finger that started the drag moves the map
   const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
   if (!drag.moved && Math.hypot(dx, dy) < 4) return;
   drag.moved = true; svg.classList.add('panning'); hideTip();
   setT({ ...state.t, x: drag.tx + dx, y: drag.ty + dy }, false);
 });
-window.addEventListener('pointerup', () => { if (drag?.moved) svg.addEventListener('click', (e) => e.stopPropagation(), { capture: true, once: true }); drag = null; svg.classList.remove('panning'); });
+const endDrag = (ev) => {
+  if (!drag || ev.pointerId !== drag.id) return;
+  if (drag.moved) { if (ev.pointerType === 'touch') swallowClick = true; else svg.addEventListener('click', (e) => e.stopPropagation(), { capture: true, once: true }); }
+  drag = null; svg.classList.remove('panning');
+};
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag); // the browser took the touch over: end the drag instead of leaving it stuck
 svg.addEventListener('click', () => select(null));
-window.addEventListener('resize', () => fit(false));
+// two fingers: pinch zooms around the point between them, and moving both together pans (one finger still drags)
+const pinchNow = () => { const [a, b] = [...fingers.values()]; return { d: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+window.addEventListener('pointermove', (ev) => {
+  if (!fingers.has(ev.pointerId)) return;
+  fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (!pinch || fingers.size !== 2) return;
+  const now = pinchNow(), r = stageRect(), t0 = pinch.t;
+  const k = clamp(t0.k * now.d / pinch.d, 0.08, 2.5), f = k / t0.k;
+  pinch.moved = true;
+  setT({ k, x: (now.x - r.left) - ((pinch.x - r.left) - t0.x) * f, y: (now.y - r.top) - ((pinch.y - r.top) - t0.y) * f }, false);
+});
+const liftFinger = (ev) => {
+  if (!fingers.delete(ev.pointerId)) return;
+  if (pinch?.moved) swallowClick = true; // lifting a finger after a pinch isn't a tap
+  if (fingers.size < 2) pinch = null;
+};
+window.addEventListener('pointerup', liftFinger);
+window.addEventListener('pointercancel', liftFinger);
+// on a touch device the browser's address bar sliding in and out resizes the window by a few pixels, mid-gesture: that must not re-fit the map
+let lastWidth = innerWidth;
+window.addEventListener('resize', () => {
+  const heightOnly = innerWidth === lastWidth; lastWidth = innerWidth;
+  if (matchMedia('(pointer: coarse)').matches && (heightOnly || drag || pinch)) return;
+  fit(false);
+});
 $('#z-in').onclick = () => zoomBy(1.25);
 $('#z-out').onclick = () => zoomBy(0.8);
 $('#z-fit').onclick = () => fit(true);

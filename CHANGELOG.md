@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Fits phones and tablets:** the top bar wraps instead of running off the screen, the details open as a sheet at the bottom of a phone (tap a box to see them), the long description under the title folds to a line with More / Less, and every control is at least 44 px to tap. Nothing changes with a mouse at 1000 px and wider. Requested in #18 and built by @menachem-kurkus in #19.
+- **Touch gestures on the map:** dragging or pinching on a phone or tablet made the map jump to unexpected places. A drag now follows only the finger that started it and ends when the browser takes over the touch (before, the drag stayed switched on and followed any later movement); a second finger starts a pinch instead of restarting the drag, and a third finger is ignored; two fingers zoom around the point between them and moving both pans; the first tap after a drag is no longer swallowed; and the browser no longer zooms or bounces the page under the map, or re-fits the map when a phone's address bar slides in and out. A mouse, a trackpad and the wheel work exactly as before.
 
 ## 0.4.2 (2026-10-30)
 
