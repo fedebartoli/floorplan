@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Fewer false Health alarms on FastAPI:** a check added where a router is included, like `app.include_router(admin.router, dependencies=[Depends(require_admin)])`, now protects every endpoint of that router, as `app.use('/admin', requireStaff, adminRouter)` already did on Express. A database session added there still doesn't count as a sign-in check.
+- **FastAPI routers found by the name they're imported under:** a router imported under another name (`from app.routes import campaigns as campaign_routes`) gets its prefix and its checks, and a package that shares a router's name (`from app.platform import pricing` beside a `platform` router) is no longer mistaken for it.
+
 ## 0.2.2 (2026-10-28)
 
 - **Light mode:** a new **Theme** button in the top bar cycles **Auto → Light → Dark**. Auto follows your device's light or dark setting and changes with it. Your choice is remembered on this device, and the map shows the right colours from the first moment, with no flash. The button is a 44 px target, works from the keyboard with a visible focus ring, and the change is instant (nothing animates, so Reduce Motion is respected). Dark looks exactly as before. Requested in #9 and built by @menachem-kurkus in #10.
