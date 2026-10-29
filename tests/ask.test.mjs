@@ -128,3 +128,16 @@ test('--engine picks one CLI and never falls back to the other', async () => {
   assert.equal(failure.code, 'cli_missing');
   assert.match(failure.message, /Codex not found/);
 });
+
+// Windows: a newer npm install of Claude Code has the real program at <npm>/node_modules/@anthropic-ai/claude-code/bin/claude.exe, no cli.js, and only
+// shell shims beside it (the extensionless "claude" that `where claude` lists first, and claude.cmd), which can't be spawned. The server must use the real program.
+test('on Windows, a Claude Code npm install with only bin/claude.exe is found and run (not the shell shim)', { skip: process.platform !== 'win32' }, async () => {
+  const npm = path.join(root, 'fake-npm');
+  const pkg = path.join(npm, 'node_modules', '@anthropic-ai', 'claude-code', 'bin');
+  fs.mkdirSync(pkg, { recursive: true });
+  fs.writeFileSync(path.join(npm, 'claude'), '#!/bin/sh\n'); // the shim: a text file that can't be run
+  try { fs.linkSync(process.execPath, path.join(pkg, 'claude.exe')); } catch { fs.copyFileSync(process.execPath, path.join(pkg, 'claude.exe')); } // a program that answers --version
+  const s = await serve({ FLOORPLAN_CLAUDE: path.join(npm, 'claude'), FLOORPLAN_CODEX: path.join(root, 'no-such-cli') });
+  assert.equal(s.page.engine, 'claude');
+  assert.equal(s.page.version, process.version);
+});
