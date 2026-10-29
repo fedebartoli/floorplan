@@ -9,9 +9,9 @@
   const issues = (SC.graph.health && SC.graph.health.issues) || [];
 
   const SEV = {
-    high: { color: '#f28b8b', group: 'Fix these first', word: 'important' },
-    medium: { color: '#f0c36b', group: 'Worth fixing soon', word: 'worth fixing' },
-    low: { color: '#8b8b8b', group: 'Good to tidy up', word: 'minor' },
+    high: { color: 'var(--sev-high)', group: 'Fix these first', word: 'important' },
+    medium: { color: 'var(--sev-medium)', group: 'Worth fixing soon', word: 'worth fixing' },
+    low: { color: 'var(--sev-low)', group: 'Good to tidy up', word: 'minor' },
   };
   const ORDER = ['high', 'medium', 'low'];
   const count = (sev) => issues.filter((i) => i.severity === sev).length;
@@ -22,7 +22,7 @@
 
   const style = document.createElement('style');
   style.textContent = `
-    .hc-issue { padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, .04); margin-bottom: 8px; }
+    .hc-issue { padding: 12px 14px; border-radius: 16px; background: rgba(var(--ink), .04); margin-bottom: 8px; }
     .hc-issue:last-child { margin-bottom: 0; }
     .hc-t { display: flex; gap: 9px; align-items: flex-start; font-weight: 500; line-height: 1.4; }
     .hc-t .dot { margin-top: 6px; }
@@ -32,11 +32,11 @@
     .hc-a { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0 17px; }
     .hc-a .btn { height: 30px; padding: 0 12px; font-size: 12.5px; gap: 6px; }
     .hc-a .btn svg.i { width: 14px; height: 14px; }
-    .hc-calm { margin-top: 14px; padding: 11px 13px; border-radius: 14px; background: rgba(111, 215, 168, .08); color: #a9e5c9; font-size: 13px; line-height: 1.55; }
+    .hc-calm { margin-top: 14px; padding: 11px 13px; border-radius: 14px; background: var(--ok-bg); color: var(--ok-text); font-size: 13px; line-height: 1.55; }
     .hc-sub { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; font-size: 12px; color: var(--text-2); }
     .hc-sub span { display: inline-flex; align-items: center; gap: 6px; }
-    #btn-health .badge { background: var(--hc-badge, #ececec); }
-    #btn-health.calm svg.i { color: #6fd7a8; }
+    #btn-health .badge { background: var(--hc-badge, var(--on)); color: var(--hc-badge-text, var(--on-text)); }
+    #btn-health.calm svg.i { color: var(--ok); }
     #modal .hc-hint { margin: 0; }
     #modal .hc-hint b { color: var(--text); font-weight: 500; }
   `;
@@ -86,7 +86,7 @@
 
   function listHtml() {
     const top = `<div class="sec">
-        <div class="ph"><span class="ico" style="--c:${urgent ? SEV[count('high') ? 'high' : 'medium'].color : '#6fd7a8'}">${SC.icon('health')}</span><span class="kindlabel">Health check</span></div>
+        <div class="ph"><span class="ico" style="--c:${urgent ? SEV[count('high') ? 'high' : 'medium'].color : 'var(--ok)'}">${SC.icon('health')}</span><span class="kindlabel">Health check</span></div>
         <h2 class="pt">${h(headline())}</h2>
         <p class="pd">We looked for passwords and keys left in the code, parts of your app anyone on the internet can use, leftover files and files too big to edit safely.</p>
         ${issues.length ? breakdown() : `<div class="hc-calm">Nothing stood out. This is a quick automatic check, not a full security review.</div>`}
@@ -119,6 +119,7 @@
     b.className = 'badge';
     b.textContent = urgent > 99 ? '99+' : String(urgent);
     btn.style.setProperty('--hc-badge', count('high') ? SEV.high.color : SEV.medium.color);
+    btn.style.setProperty('--hc-badge-text', 'var(--on-sev-text)');
     btn.appendChild(b);
   } else btn.classList.add('calm');
 
@@ -127,7 +128,7 @@
 
   SC.addPanelSection('overview', () => ({
     html: `<div class="sec"><h3>Health</h3><div class="list"><a class="row" data-hc-open>
-        <span class="dot" style="background:${urgent ? SEV[count('high') ? 'high' : 'medium'].color : '#6fd7a8'}"></span>
+        <span class="dot" style="background:${urgent ? SEV[count('high') ? 'high' : 'medium'].color : 'var(--ok)'}"></span>
         <span class="rt"><div class="rn">${h(headline())}</div><div class="rd">${issues.length ? ORDER.filter(count).map((s) => `${count(s)} ${SEV[s].word}`).join(' · ') : 'Quick automatic check of secrets, open endpoints and leftover files'}</div></span>
         <span class="rc">${SC.iconI('right')}</span></a></div></div>`,
     bind: (el) => el.querySelector('[data-hc-open]')?.addEventListener('click', (ev) => { ev.preventDefault(); openList(); }),

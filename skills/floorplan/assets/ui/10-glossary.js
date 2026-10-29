@@ -138,7 +138,7 @@
   const style = document.createElement('style');
   style.textContent = `
 .sc-term { pointer-events: auto; cursor: help; border-radius: 4px; text-decoration-line: underline; text-decoration-style: dotted; text-decoration-thickness: 1px; text-underline-offset: 3px;
-  text-decoration-color: rgba(255, 255, 255, .32); text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); transition: text-decoration-color .2s var(--ease), color .2s var(--ease); }
+  text-decoration-color: rgba(var(--ink), .32); text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); transition: text-decoration-color .2s var(--ease), color .2s var(--ease); }
 .sc-term:hover, .sc-term.on { text-decoration-color: currentColor; color: var(--text); }
 .callout .sc-term:hover, .callout .sc-term.on { color: inherit; }
 .sc-term:focus { outline: none; }

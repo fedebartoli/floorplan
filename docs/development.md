@@ -30,7 +30,7 @@ skills/floorplan/
     lib/           extraction, import resolution, route matching, Health, screens, which agent is running, helpers
   assets/
     viewer.html    the map (template the build fills in)
-    ui/            viewer extensions: glossary, Health, recent work, screens, tour, waitlist card
+    ui/            viewer extensions: Theme button, glossary, Health, recent work, screens, tour, waitlist card
     graph-query.js shared map lookups (viewer, query.mjs, Ask instructions)
     serve.mjs      copied into each project's floorplan/ folder; answers through Claude Code or Codex
     query-cli.mjs  becomes floorplan/query.mjs

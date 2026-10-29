@@ -25,15 +25,15 @@
     #cloud-card .cl { background: none; border: 0; padding: 0; color: var(--text-3); font: inherit; font-size: 12px; cursor: pointer; margin-left: auto; }
     #cloud-card .cl:hover { color: var(--text-2); }
     #cloud-card .co { display: grid; gap: 6px; margin-top: 12px; }
-    #cloud-card .co button { text-align: left; border: 0; border-radius: 14px; padding: 10px 12px; background: rgba(255, 255, 255, .05); color: var(--text); cursor: pointer; font: inherit; transition: background .2s var(--ease); }
-    #cloud-card .co button:hover { background: rgba(255, 255, 255, .1); }
+    #cloud-card .co button { text-align: left; border: 0; border-radius: 14px; padding: 10px 12px; background: rgba(var(--ink), .05); color: var(--text); cursor: pointer; font: inherit; transition: background .2s var(--ease); }
+    #cloud-card .co button:hover { background: rgba(var(--ink), .1); }
     #cloud-card .co b { display: block; font-size: 13.5px; font-weight: 500; }
     #cloud-card .co span { display: block; color: var(--text-3); font-size: 12px; margin-top: 2px; }
     #cloud-card input { width: 100%; box-sizing: border-box; margin-top: 12px; height: 38px; padding: 0 12px; border-radius: var(--r-ctl); border: 1px solid var(--hair-2);
-      background: rgba(0, 0, 0, .25); color: var(--text); font: inherit; font-size: 13.5px; outline: none; }
-    #cloud-card input:focus { border-color: rgba(255, 255, 255, .3); }
+      background: var(--well); color: var(--text); font: inherit; font-size: 13.5px; outline: none; }
+    #cloud-card input:focus { border-color: rgba(var(--ink), .3); }
     #cloud-card .cm { margin-top: 8px; font-size: 12px; color: var(--text-3); min-height: 0; }
-    #cloud-card .cm.err { color: #f28b8b; }
+    #cloud-card .cm.err { color: var(--sev-high); }
     #cloud-card .cf { margin-top: 12px; font-size: 11.5px; line-height: 1.5; color: var(--text-3); }
     #cloud-card .cf a { color: var(--text-2); }
   `;

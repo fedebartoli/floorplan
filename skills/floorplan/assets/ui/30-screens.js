@@ -13,12 +13,12 @@
   const style = document.createElement('style');
   style.textContent = `
 #sc-menu { position: fixed; width: 340px; max-height: min(70vh, 580px); overflow: auto; transform-origin: top right; overscroll-behavior: contain; }
-#sc-menu .sc-f { position: sticky; top: -6px; margin: -6px -6px 4px; padding: 10px 10px 6px; background: rgba(26, 26, 26, .94); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 1; border-radius: 18px 18px 0 0; }
-#sc-menu .sc-f input { width: 100%; height: 34px; border: 0; border-radius: 12px; padding: 0 12px; background: rgba(255, 255, 255, .06); color: var(--text); outline: none; transition: background .2s var(--ease), box-shadow .2s var(--ease); }
-#sc-menu .sc-f input:focus { background: rgba(255, 255, 255, .08); box-shadow: 0 0 0 1px rgba(255, 255, 255, .14); }
+#sc-menu .sc-f { position: sticky; top: -6px; margin: -6px -6px 4px; padding: 10px 10px 6px; background: var(--menu-solid); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 1; border-radius: 18px 18px 0 0; }
+#sc-menu .sc-f input { width: 100%; height: 34px; border: 0; border-radius: 12px; padding: 0 12px; background: rgba(var(--ink), .06); color: var(--text); outline: none; transition: background .2s var(--ease), box-shadow .2s var(--ease); }
+#sc-menu .sc-f input:focus { background: rgba(var(--ink), .08); box-shadow: 0 0 0 1px rgba(var(--ink), .14); }
 #sc-menu .sc-g { padding: 10px 12px 4px; font-size: 12px; color: var(--text-3); }
 #sc-menu .sc-r { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--text); padding: 9px 12px; border-radius: 12px; cursor: pointer; transition: background .15s var(--ease); }
-#sc-menu .sc-r:hover, #sc-menu .sc-r.on { background: rgba(255, 255, 255, .07); }
+#sc-menu .sc-r:hover, #sc-menu .sc-r.on { background: rgba(var(--ink), .07); }
 #sc-menu .sc-r b { font-weight: 500; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #sc-menu .sc-r span { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 #sc-menu .sc-none { padding: 14px 12px; color: var(--text-3); font-size: 12.5px; }
