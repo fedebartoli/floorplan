@@ -17,6 +17,10 @@ try {
     process.exit(0);
   }
   const g = JSON.parse(fs.readFileSync(graphFile, 'utf8'));
+  if (g.meta.blueprint) {
+    console.log(`a blueprint (planned, not built${g.meta.blueprint.source ? `, from ${g.meta.blueprint.source}` : ''}) built ${g.meta.generatedAt}: ${g.meta.counts.files} planned files, ${g.nodes.length} nodes.\nTo change the plan, edit floorplan/plan.json and architecture.json, then run refresh.mjs (it redraws from plan.json). If the code now exists and the user wants a map of it, run refresh.mjs --from-code.`);
+    process.exit(0);
+  }
   const lines = [`map built ${g.meta.generatedAt} covering ${g.meta.counts.files} files, ${g.nodes.length} nodes.`];
   for (const r of g.meta.repos || []) {
     const abs = path.join(root, r.path);

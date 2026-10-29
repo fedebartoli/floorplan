@@ -19,9 +19,11 @@ skills/floorplan/
     schema.md                architecture.json and recent-work.json
     choosing-boundaries.md   how to carve a codebase into a good map
     writing-descriptions.md  plain-language names and descriptions
+    blueprint.md             plan.json, for a map planned from a PRD
   scripts/             Node.js, no dependencies; Claude runs these
     status.mjs     is there a map, and how stale is it (runs when the skill loads)
     scan.mjs       repos, files, imports, endpoints, requests → .cache/scan.json
+    plan.mjs       a blueprint's plan.json → the same .cache/scan.json
     build.mjs      validate, assign files, connect, Health, screens → graph.json + index.html
     describe.mjs   worksheets for Claude to name and describe files and endpoints
     refresh.mjs    incremental update: re-scan, carry over, flag changes, rebuild
@@ -30,7 +32,7 @@ skills/floorplan/
     lib/           extraction, import resolution, route matching, Health, screens, which agent is running, helpers
   assets/
     viewer.html    the map (template the build fills in)
-    ui/            viewer extensions: Theme button, glossary, Health, recent work, screens, tour, waitlist card
+    ui/            viewer extensions: Theme button, blueprints, glossary, Health, recent work, screens, tour, waitlist card
     graph-query.js shared map lookups (viewer, query.mjs, Ask instructions)
     serve.mjs      copied into each project's floorplan/ folder; answers through Claude Code or Codex
     query-cli.mjs  becomes floorplan/query.mjs
@@ -78,6 +80,7 @@ The tests use Node's built-in test runner, so there's nothing to install (`npm t
 | `secrets.test.mjs` | Health finds secrets, masks them, and ignores placeholders |
 | `health.test.mjs` | which endpoints Health calls open to anyone (FastAPI sample in `fixtures/`) |
 | `firebase.test.mjs` | Firebase Cloud Functions: callables and onRequest functions as endpoints, the website's calls to them, Screens, Health, background functions (React + Firebase sample in `fixtures/`) |
+| `blueprint.test.mjs` | a map planned from a PRD before any code exists: plan.json errors, endpoints and calls, Screens, the design review, refreshing and switching to the real code (sample PRD in `fixtures/`) |
 | `sample-app.test.mjs` | a whole map of a two-repo shop: endpoints, cross-repo requests, Health, offline map, no secret values written, updates |
 | `serve.test.mjs` | the map's server: 127.0.0.1 only, token and same-origin checks, nothing served from outside its folder |
 | `ask.test.mjs` | asking through Claude Code or Codex: which one is used, read-only, follow-ups, sign-in errors (stand-in CLIs in `fixtures/fake-cli/`) |

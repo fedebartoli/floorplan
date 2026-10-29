@@ -528,6 +528,8 @@ const AGENT = (window.FLOORPLAN_SERVER?.engine || window.FLOORPLAN_SERVER?.want 
       signIn: 'Run <code>claude</code> in a terminal once to sign in, then ask again.' };
 const Cap = (t) => t[0].toUpperCase() + t.slice(1);
 if (!G) { document.body.innerHTML = '<p style="padding:2rem">No data. Run build.mjs.</p>'; return; }
+// a blueprint: planned from a PRD, so its files don't exist yet (no line counts, nothing to open in an editor)
+const PLAN = !!G.meta.blueprint;
 if (typeof ELK === 'undefined') { document.body.innerHTML = '<p style="padding:2rem">Could not load the ELK layout engine. Rebuild the map with build.mjs.</p>'; return; }
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -885,7 +887,7 @@ function cardTip(id) {
   const st = statsOf(id);
   const kind = i.type === 'node' ? i.kind : i.type === 'route' ? 'endpoint' : i.type === 'symbol' ? i.symKind : i.type === 'module' ? 'file' : i.type;
   const where = i.type === 'node' ? (i.n.paths || []).join('\n') : i.type === 'route' ? `${i.f.p}${i.r.h ? ` · ${i.r.h}()` : ''}` : i.path || '';
-  const size = st?.files ? (i.type === 'file' || i.type === 'module' ? `${fmt(st.loc)} lines` : `${plural(st.files, 'file')} · ${fmt(st.loc)} lines`) : '';
+  const size = !st?.files ? '' : PLAN ? (i.type === 'file' || i.type === 'module' ? 'planned' : plural(st.files, 'planned file')) : i.type === 'file' || i.type === 'module' ? `${fmt(st.loc)} lines` : `${plural(st.files, 'file')} · ${fmt(st.loc)} lines`;
   const hints = [drillable(id) && state.container !== id ? '<span><span class="kbd">2×click</span> open</span>' : '', '<span><span class="kbd">right-click</span> more</span>'].join('');
   return `<div class="tt">${h(i.name)}</div><div class="td" style="text-transform:capitalize">${h(kind)}${size ? ` · ${size}` : ''}</div>${where ? `<div class="tp">${h(where)}</div>` : ''}${recentTip(id)}<div class="th">${hints}</div>`;
 }
@@ -1321,7 +1323,7 @@ function renderLegend(view) {
 }
 
 // ======================= inspector =======================
-const editorUrl = (p, line = 1) => G.meta.root ? `vscode://file/${encodeURI(G.meta.root.replace(/\\/g, '/'))}/${encodeURI(p)}:${line}` : null;
+const editorUrl = (p, line = 1) => G.meta.root && !PLAN ? `vscode://file/${encodeURI(G.meta.root.replace(/\\/g, '/'))}/${encodeURI(p)}:${line}` : null;
 const rowFor = (item, extra = '', dotColor) => {
   const i = info(item);
   return `<a class="row" data-go="${h(item)}" title="${h(i.path || '')}"><span class="dot" style="background:${dotColor || colorOf(i)}"></span><span class="rt"><div class="rn">${h(i.name)}</div>${i.desc ? `<div class="rd">${h(i.desc)}</div>` : ''}</span>${extra ? `<span class="rc">${extra}</span>` : ''}</a>`;
@@ -1395,7 +1397,7 @@ function systemsSection(tops) {
   const parts = SYSTEM_GROUPS.map((g) => {
     const items = tops.filter((t) => g.kinds.includes(info(t).kind));
     items.forEach((t) => placed.add(t));
-    return items.length ? `<div class="group-h">${h(g.label)}<span class="gd">${h(g.hint)}</span></div><div class="list">${items.map((t) => rowFor(t, info(t).kind === 'external' ? '' : technical() && statsOf(t)?.files ? fmt(statsOf(t).loc) + ' loc' : statsOf(t)?.files ? plural(statsOf(t).files, 'file') : '')).join('')}</div>` : '';
+    return items.length ? `<div class="group-h">${h(g.label)}<span class="gd">${h(g.hint)}</span></div><div class="list">${items.map((t) => rowFor(t, info(t).kind === 'external' ? '' : technical() && !PLAN && statsOf(t)?.files ? fmt(statsOf(t).loc) + ' loc' : statsOf(t)?.files ? plural(statsOf(t).files, 'file') : '')).join('')}</div>` : '';
   });
   const rest = tops.filter((t) => !placed.has(t));
   if (rest.length) parts.push(`<div class="group-h">Other</div><div class="list">${rest.map((t) => rowFor(t)).join('')}</div>`);
@@ -1406,8 +1408,8 @@ function overviewPanel() {
   const p = G.project;
   const tops = kids.get('root') || [];
   const undescribed = G.files.filter((f) => f.auto).length + routes.filter((r) => r.auto).length;
-  return `<div class="sec"><div class="ph"><span class="ico" style="--c:var(--accent)">${icon('feature')}</span><span class="kind">Codebase</span></div><h2 class="pt">${h(p.name)}</h2>${p.summary ? `<p class="pd">${h(p.summary)}</p>` : ''}
-      <div class="stats" style="margin-top:14px"><div><b>${fmt(G.meta.counts.files)}</b><span>files</span></div><div><b>${fmt(G.meta.counts.loc)}</b><span>lines</span></div><div><b>${fmt(routes.length)}</b><span>endpoints</span></div></div>
+  return `<div class="sec"><div class="ph"><span class="ico" style="--c:var(--accent)">${icon('feature')}</span><span class="kind">${PLAN ? 'Blueprint' : 'Codebase'}</span></div><h2 class="pt">${h(p.name)}</h2>${p.summary ? `<p class="pd">${h(p.summary)}</p>` : ''}
+      <div class="stats" style="margin-top:14px"><div><b>${fmt(G.meta.counts.files)}</b><span>${PLAN ? 'planned files' : 'files'}</span></div>${PLAN ? `<div><b>${fmt((G.screens || []).length)}</b><span>screens</span></div>` : `<div><b>${fmt(G.meta.counts.loc)}</b><span>lines</span></div>`}<div><b>${fmt(routes.length)}</b><span>endpoints</span></div></div>
       ${undescribed ? `<div class="callout">${undescribed} files and endpoints still use generated names. Run the skill again to describe them.</div>` : ''}</div>
     ${systemsSection(tops)}
     ${listSec('Guided flows', G.flows.map((f) => `<a class="row" data-flow="${h(f.id)}"><span class="dot" style="background:var(--accent)"></span><span class="rt"><div class="rn">${h(f.title)}</div>${f.description ? `<div class="rd">${h(f.description)}</div>` : ''}</span><span class="rc">${f.steps.length} steps</span></a>`))}
@@ -1451,15 +1453,15 @@ function itemPanel(item, viaConnector) {
       const tot = langs.reduce((a, [, v]) => a + v, 0) || 1;
       const palette = ['#a78bfa', '#38bdf8', '#34d399', '#fbbf24', '#f472b6'];
       const nr = routes.filter((r) => chain('f:' + r.f).includes(item)).length;
-      html += `<div class="sec"><div class="stats"><div><b>${fmt(s.files)}</b><span>files</span></div><div><b>${fmt(s.loc)}</b><span>lines</span></div><div><b>${nr}</b><span>endpoints</span></div></div>
-        ${langs.length ? `<div class="bar">${langs.map(([, v], k) => `<span style="flex:${v};background:${palette[k]}"></span>`).join('')}</div><div class="legend-row">${langs.map(([l, v], k) => `<span><span class="dot" style="background:${palette[k]}"></span>${h(l)} ${Math.round((v / tot) * 100)}%</span>`).join('')}</div>` : ''}</div>`;
+      html += `<div class="sec"><div class="stats"><div><b>${fmt(s.files)}</b><span>${PLAN ? 'planned files' : 'files'}</span></div>${PLAN ? '' : `<div><b>${fmt(s.loc)}</b><span>lines</span></div>`}<div><b>${nr}</b><span>endpoints</span></div></div>
+        ${langs.length && !PLAN ? `<div class="bar">${langs.map(([, v], k) => `<span style="flex:${v};background:${palette[k]}"></span>`).join('')}</div><div class="legend-row">${langs.map(([l, v], k) => `<span><span class="dot" style="background:${palette[k]}"></span>${h(l)} ${Math.round((v / tot) * 100)}%</span>`).join('')}</div>` : ''}</div>`;
     }
     if (n?.packages?.length || n?.hosts?.length || n?.tags?.length) html += `<div class="sec"><h3>Matched by</h3><div class="tags">${[...n.packages.map((p) => 'pkg ' + p), ...n.hosts.map((p) => 'host ' + p), ...n.tags.map((t) => '#' + t)].map((t) => `<span class="tag">${h(t)}</span>`).join('')}</div></div>`;
     html += listSec('Inside', (kids.get(item) || []).filter((k) => !k.startsWith('f:')).map((k) => rowFor(k)));
     const c = connections(item);
     html += listSec('Used by', c.inn) + listSec('Depends on', c.out);
     const fl = (i.d ? i.d.files : G.files.filter((f) => chain('f:' + f.p).includes(item))).slice().sort((a, b) => b.loc - a.loc);
-    html += listSec('Files', fl.map((f) => rowFor('f:' + f.p, fmt(f.loc))), fl.length, 25);
+    html += listSec(PLAN ? 'Planned files' : 'Files', fl.map((f) => rowFor('f:' + f.p, PLAN ? '' : fmt(f.loc))), fl.length, 25);
   } else if (i.type === 'file' || i.type === 'module') {
     const f = i.f, fid = 'f:' + f.p, url = editorUrl(f.p);
     if (f.note) html += `<div class="callout">${h(f.note)}</div>`;
@@ -1467,7 +1469,7 @@ function itemPanel(item, viaConnector) {
     if (url) actions.push(`<a class="btn soft" href="${url}">${iconI('open')}Open in editor</a>`);
     if (actions.length) html += `<div class="actions">${actions.join('')}</div>`;
     const owner = nodes.get(f.n);
-    html += `</div><div class="sec"><div class="stats"><div><b>${fmt(f.loc)}</b><span>lines</span></div><div><b>${(routesByFile.get(f.p) || []).length}</b><span>endpoints</span></div><div><b>${technical() ? (f.s || []).length : fmt(G.links.filter((l) => l.b === 'f:' + f.p).length)}</b><span>${technical() ? 'exports' : 'used by'}</span></div></div>
+    html += `</div><div class="sec"><div class="stats">${PLAN ? `<div><b>${fmt(G.links.filter((l) => l.a === fid).length)}</b><span>uses</span></div>` : `<div><b>${fmt(f.loc)}</b><span>lines</span></div>`}<div><b>${(routesByFile.get(f.p) || []).length}</b><span>endpoints</span></div><div><b>${technical() ? (f.s || []).length : fmt(G.links.filter((l) => l.b === 'f:' + f.p).length)}</b><span>${technical() ? 'exports' : 'used by'}</span></div></div>
       ${owner ? `<div class="list" style="margin-top:12px">${rowFor('n:' + owner.id, 'module')}</div>` : ''}</div>`;
     html += listSec('Endpoints', (routesByFile.get(f.p) || []).map((ri) => routeRow(ri)), undefined, 60);
     const inL = G.links.filter((l) => l.b === fid), outL = G.links.filter((l) => l.a === fid);

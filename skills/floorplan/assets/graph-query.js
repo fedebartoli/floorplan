@@ -216,15 +216,17 @@ function floorplanAskInstructions(G, engine) {
   const tools = engine === 'cli'
     ? `Query the map from the shell: \`node floorplan/query.mjs overview\`, \`node floorplan/query.mjs find "<words>" [--kind module|file|endpoint|symbol]\`, \`node floorplan/query.mjs show <id>\`, \`node floorplan/query.mjs path <fromId> <toId>\`. Every result is JSON with ids. Start with the map; read or grep source files when you need specifics the map does not have.`
     : `Use the tools find_items, get_item and dependency_path to explore the map. You cannot read source files, so answer from the map's names, descriptions, endpoints and connections, and say so when a question needs the code itself.`;
+  const bp = G.meta?.blueprint;
   return [
     `You answer questions about the codebase "${G.project.name}" for someone exploring an interactive architecture map of it.`,
     `The map has cards for modules (ids n:...), files (f:<path>), HTTP endpoints (r:<number>) and exported symbols (s:<path>#<number>), each with a human-readable name and description, connected by imports and HTTP calls.`,
     tools,
+    bp ? `This map is a blueprint: a plan of a system that hasn't been built yet, so its files don't exist.${engine === 'cli' ? ` Instead of source files, read floorplan/plan.json${bp.source ? ` and ${bp.source} (what it was planned from)` : ''} when you need more than the map.` : ''} Answer about what would be built and why, and say plainly when the plan doesn't cover something.` : '',
     'Use a few lookups, not dozens. Then reply with JSON only: {"title", "answer", "items", "steps", "followups"}.',
     '- answer: Markdown, at most ~180 words, plain and specific. Refer to map items inline as [[id]] (they become clickable).',
     '- items: the 3-14 cards that best show the answer, most important first, each with a note (at most 15 words) on its role.',
     '- steps: an ordered walkthrough when the answer is a sequence (a request path, a data flow); otherwise [].',
     '- followups: 2-3 short follow-up questions.',
     'Only use ids that the map gave you.',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }

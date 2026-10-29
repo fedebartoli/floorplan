@@ -98,6 +98,14 @@ Updates re-read only what changed, and an open map reloads itself. Everything ru
 
 </td>
 </tr>
+<tr>
+<td colspan="2" valign="top">
+
+**📐 Plan it before you build it**<br>
+No code yet? Share a PRD or describe what you want to build, and get a blueprint: the same map of every piece you'd need and how they fit together, with a review of what's still undecided and a ready request to build each part.
+
+</td>
+</tr>
 </table>
 
 Plus guided **flows** you can request in plain words, a one-minute **Start here** tour, search, keyboard shortcuts, and right-click actions on every card.
@@ -186,6 +194,12 @@ When you've done more work, ask:
 
 Only what changed is re-read, and what you just worked on lights up under **Recent work**.
 
+**Planning something new?** Ask:
+
+> Here's my PRD. Make me a floorplan of what we'd need to build.
+
+You get a blueprint of the planned system, marked as planned, and each part has **Build this with Claude** (or Codex) when you're ready to start.
+
 ### Things to try
 
 | Ask Claude Code or Codex | Ask the map |
@@ -195,6 +209,7 @@ Only what changed is re-read, and what you just worked on lights up under **Rece
 | "Fix the important issues from the floorplan's Health check" | "If I change the users table, what breaks?" |
 | "Add a flow showing how a new user signs up" | "Which files handle login?" |
 | "Rewrite the floorplan for developers" | "What did we change for refunds?" |
+| "Here's my PRD: make me a blueprint" | "What do I need to build for payments?" |
 
 ## How it works
 
