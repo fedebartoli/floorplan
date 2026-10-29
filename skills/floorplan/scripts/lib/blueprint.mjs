@@ -147,6 +147,9 @@ export function buildPlanHealth({ graph, scan }) {
   };
   const line = (r) => `- ${r.m} ${r.p} (${r.f})${r.name ? ` — ${r.name}` : ''}`;
   const rebuild = 'Then rebuild the blueprint: run plan.mjs and build.mjs from the Floorplan skill, as its instructions say.';
+  // each item also carries `change`: a request to settle it from the map (the Ask bar's Change mode), for the person to finish or edit
+  const names = (xs, max = 6) => { const l = xs.slice(0, max).concat(xs.length > max ? [`${xs.length - max} more`] : []); return l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} and ${l.at(-1)}`; };
+  const ep = (r) => `${r.m} ${r.p}`;
 
   // ---------- who may call each endpoint ----------
   const accessOf = (r) => bp.access?.[routeKey(r.m, r.p)];
@@ -154,6 +157,7 @@ export function buildPlanHealth({ graph, scan }) {
   const openWrites = routes.map((r, i) => ({ r, i })).filter(({ r }) => accessOf(r) === 'public' && WRITE.has(r.m) && !r.publicBecause);
   if (openWrites.length) issues.push({
     id: 'plan-open-writes', kind: 'unprotected-endpoint', severity: 'medium',
+    change: `Review who may use ${names(openWrites.map(({ r }) => ep(r)))}: anyone can change data through ${openWrites.length === 1 ? 'it' : 'them'} now. `,
     title: openWrites.length === 1 ? 'Anyone could change data through one planned endpoint' : `Anyone could change data through ${openWrites.length} planned endpoints`,
     detail: `The plan lets ${openWrites.length === 1 ? 'this endpoint' : 'these endpoints'} create, change or delete data with no sign-in. That's right for things like signing up or a guest checkout, but worth a second look before building: ${openWrites.length === 1 ? 'it is' : 'they are'} the easiest thing for a stranger to misuse.`,
     items: openWrites.slice(0, 24).map(({ i }) => 'r:' + i),
@@ -164,6 +168,7 @@ export function buildPlanHealth({ graph, scan }) {
   const unknown = routes.map((r, i) => ({ r, i })).filter(({ r }) => !accessOf(r));
   if (unknown.length) issues.push({
     id: 'plan-no-access', kind: 'unprotected-endpoint', severity: 'medium',
+    change: `Decide who may use ${names(unknown.map(({ r }) => ep(r)))}, going by the PRD. `,
     title: unknown.length === 1 ? 'The plan doesn’t say who may use one endpoint' : `The plan doesn’t say who may use ${unknown.length} endpoints`,
     detail: `Deciding who can use each part of the system now (anyone, signed-in customers, only managers, your own team, another service) is much easier than adding sign-in checks after it's built.`,
     items: unknown.slice(0, 24).map(({ i }) => 'r:' + i),
@@ -177,6 +182,7 @@ export function buildPlanHealth({ graph, scan }) {
     const items = [...new Set(q.about.map(refOf).filter(Boolean))];
     issues.push({
       id: 'plan-question:' + k, kind: 'question', severity: 'medium',
+      change: `Open question: "${q.question}" My answer: `,
       title: q.question,
       detail: 'The PRD doesn’t answer this, and the answer changes what gets built. Decide it before building the parts it touches.',
       items, notes: Object.fromEntries(items.map((id) => [id, 'Depends on an open question'])),
@@ -190,6 +196,7 @@ export function buildPlanHealth({ graph, scan }) {
   const unusedRoutes = routes.map((r, i) => ({ r, i })).filter(({ r, i }) => !called.has(i) && !['webhook', 'internal', 'public'].includes(accessOf(r)));
   if (unusedRoutes.length) issues.push({
     id: 'plan-unused-endpoints', kind: 'unused-file', severity: 'low',
+    change: `Nothing calls ${names(unusedRoutes.map(({ r }) => ep(r)))}. Add the screen or service that should use ${unusedRoutes.length === 1 ? 'it' : 'them'}, or remove ${unusedRoutes.length === 1 ? 'it' : 'them'} if not needed. `,
     title: unusedRoutes.length === 1 ? 'Nothing in the plan uses one endpoint' : `Nothing in the plan uses ${unusedRoutes.length} endpoints`,
     detail: `No planned page or service calls ${unusedRoutes.length === 1 ? 'it' : 'them'}. Either a screen that needs ${unusedRoutes.length === 1 ? 'it is' : 'them is'} missing from the plan, or ${unusedRoutes.length === 1 ? 'it isn’t' : 'they aren’t'} needed.`,
     items: unusedRoutes.slice(0, 24).map(({ i }) => 'r:' + i),
@@ -204,6 +211,7 @@ export function buildPlanHealth({ graph, scan }) {
   const loose = graph.files.filter((f) => !linked.has('f:' + f.p) && !screenFiles.has(f.p) && !routeFiles.has(f.p));
   if (loose.length) issues.push({
     id: 'plan-loose-files', kind: 'unused-file', severity: 'low',
+    change: `${names(loose.map((f) => f.p))} ${loose.length === 1 ? 'isn’t' : 'aren’t'} connected to anything. Connect ${loose.length === 1 ? 'it' : 'them'} to what should use ${loose.length === 1 ? 'it' : 'them'}, or remove ${loose.length === 1 ? 'it' : 'them'}. `,
     title: loose.length === 1 ? 'One planned file isn’t connected to anything' : `${loose.length} planned files aren’t connected to anything`,
     detail: `Nothing in the plan uses ${loose.length === 1 ? 'it' : 'them'}, and ${loose.length === 1 ? 'it doesn’t' : 'they don’t'} use anything. That usually means a connection is missing from the plan.`,
     items: loose.slice(0, 24).map((f) => 'f:' + f.p),

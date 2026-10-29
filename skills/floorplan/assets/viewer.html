@@ -1975,7 +1975,7 @@ function renderChips() {
   const box = $('#ask-chips');
   box.innerHTML = askState.context.map((id) => { const i = info(id); return `<span class="chip" title="${h(i.path || '')}"><span class="ico" style="--c:${colorOf(i)}">${icon(iconKey(i))}</span><span>${h(i.name)}</span><button type="button" data-rm="${h(id)}" aria-label="Remove">${iconI('x')}</button></span>`; }).join('');
   box.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { askState.context = askState.context.filter((x) => x !== b.dataset.rm); renderChips(); askInput.focus(); });
-  askInput.placeholder = !askState.engine ? 'Asking is unavailable' : askState.context.length ? 'Ask about this…' : `Ask anything about ${G.project.name}…`;
+  askInput.placeholder = !askState.engine ? 'Asking is unavailable' : askState.mode === 'change' ? (askState.context.length ? 'What should change here?' : 'Ask for a change, e.g. “also plan out refunds”…') : askState.context.length ? 'Ask about this…' : `Ask anything about ${G.project.name}…`;
   askSend.disabled = !askState.engine;
 }
 askInput.addEventListener('keydown', (ev) => { if (ev.key === 'Backspace' && !askInput.value && askState.context.length) { askState.context.pop(); renderChips(); } });
@@ -2106,6 +2106,16 @@ window.Floorplan = Object.freeze({
   closeMenus: () => { closeMenu(); fm.classList.remove('open'); legendEl.classList.remove('open'); },
   // asking
   addAskContext, ask: (text) => { askInput.value = text; submitAsk(); }, askEngine: () => askState.engine,
+  // a blueprint's Change mode: whether it's available here, and putting a request in the Ask bar to finish and send
+  canChange: () => canChange(),
+  draftChange(text) {
+    if (!canChange()) return false;
+    setAskMode('change');
+    askInput.value = text;
+    askInput.focus();
+    askInput.setSelectionRange(text.length, text.length);
+    return true;
+  },
   // chrome
   addHeaderButton({ id, label = '', icon: ic, svg, title = '', onClick }) {
     const b = document.createElement('button');

@@ -55,6 +55,14 @@
     if (isOpen) closeList();
     SC.showBoard({ title: issue.title, question: issue.detail, items });
   }
+  // a served blueprint settles review items on the map: the request goes into the Ask bar's Change mode,
+  // for the person to finish (an open question needs their answer) or edit, then send
+  const here = (issue) => PLAN && !!issue.change && !!SC.canChange?.();
+  function resolveHere(issue) {
+    if (isOpen) closeList();
+    if (!SC.draftChange(issue.change)) { fixWith(issue); return; }
+    SC.toast(issue.kind === 'question' ? 'Type your answer, then press Enter' : 'Edit the request if you like, then press Enter');
+  }
   function fixWith(issue) {
     SC.modal({
       title: `${FIX} with ${A.name}`,
@@ -77,12 +85,13 @@
       ${locText(issue)}
       <div class="hc-a">
         ${onMap(issue) ? `<button class="btn soft" data-hc-show="${idx}">${SC.iconI('search')}Show on map</button>` : ''}
-        <button class="btn soft" data-hc-fix="${idx}">${SC.iconI('spark')}${FIX} with ${A.name}</button>
+        ${here(issue) ? `<button class="btn soft" data-hc-here="${idx}">${SC.iconI('spark')}Resolve on the map</button>` : `<button class="btn soft" data-hc-fix="${idx}">${SC.iconI('spark')}${FIX} with ${A.name}</button>`}
       </div>
     </div>`;
   const bindIssues = (el) => {
     el.querySelectorAll('[data-hc-show]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); showOnMap(issues[+b.dataset.hcShow]); }));
     el.querySelectorAll('[data-hc-fix]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); fixWith(issues[+b.dataset.hcFix]); }));
+    el.querySelectorAll('[data-hc-here]').forEach((b) => b.addEventListener('click', (ev) => { ev.stopPropagation(); resolveHere(issues[+b.dataset.hcHere]); }));
   };
   const headline = () => urgent ? `${SC.plural(urgent, 'thing')} need${urgent === 1 ? 's' : ''} attention` : issues.length ? 'Nothing urgent' : 'No problems found';
   const breakdown = () => `<div class="hc-sub">${ORDER.filter(count).map((s) => `<span><i class="dot" style="background:${SEV[s].color}"></i>${count(s)} ${SEV[s].word}</span>`).join('')}</div>`;
@@ -99,7 +108,9 @@
       const list = issues.map((i, idx) => [i, idx]).filter(([i]) => i.severity === sev);
       return list.length ? `<div class="sec"><h3>${h(SEV[sev].group)} <span class="c">${list.length}</span></h3>${list.map(([i, idx]) => issueHtml(i, idx)).join('')}</div>` : '';
     }).join('');
-    const foot = issues.length ? `<div class="sec" style="color:var(--text-3);font-size:12px;line-height:1.6">These are automatic hints. “${FIX} with ${A.name}” gives you a request to paste into ${A.app}; ${PLAN ? 'it explains the choice and updates the plan once you decide' : 'it checks the code before changing anything'}.</div>` : '';
+    const foot = !issues.length ? '' : `<div class="sec" style="color:var(--text-3);font-size:12px;line-height:1.6">These are automatic hints. ${issues.some(here)
+      ? `“Resolve on the map” puts a request in the Ask bar’s Change mode: finish or edit it, press Enter, and ${A.name} updates the plan and redraws the map. Undo puts it back.`
+      : `“${FIX} with ${A.name}” gives you a request to paste into ${A.app}; ${PLAN ? 'it explains the choice and updates the plan once you decide' : 'it checks the code before changing anything'}.`}</div>`;
     return top + groups + foot;
   }
   function openList() {

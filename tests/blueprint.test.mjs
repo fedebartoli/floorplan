@@ -80,6 +80,14 @@ test('Health is a design review of the plan', () => {
   assert.deepEqual(routesOf(issues[3]), ['DELETE /api/walkers/:id']);
   assert.deepEqual(issues[4].items, ['f:api/src/lib/geo.ts']);
   assert.match(issues[0].fix, /floorplan\/plan\.json/);
+  // each item also has a request to settle it from the map, for the person to finish or edit
+  assert.deepEqual(issues.map((i) => i.change), [
+    'Review who may use POST /api/auth/signup: anyone can change data through it now. ',
+    'Decide who may use DELETE /api/walkers/:id, going by the PRD. ',
+    'Open question: "Can owners cancel a walk for free, and up to when?" My answer: ',
+    'Nothing calls DELETE /api/walkers/:id. Add the screen or service that should use it, or remove it if not needed. ',
+    'api/src/lib/geo.ts isn’t connected to anything. Connect it to what should use it, or remove it. ',
+  ]);
   assert.match(buildOut, /DESIGN REVIEW {2}0 important · 3 worth fixing · 2 minor/);
 });
 

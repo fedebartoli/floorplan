@@ -296,11 +296,12 @@ function runAgent(res, send, body) {
     send('start', { id });
     child.stdin.end(run.input);
     let buf = '', stderr = '', done = false;
-    // writing a whole updated plan takes a while with nothing to report: say so after a quiet spell
-    let quiet = null;
-    const hush = () => { clearTimeout(quiet); if (body.mode === 'change' && !done) quiet = setTimeout(() => { if (!done) send('progress', { text: 'Writing the updated plan' }); }, 12000); };
+    // working out and writing a whole updated plan has long stretches with nothing to report: say so after a quiet spell
+    let quiet = null, said = '';
+    const say = (text) => { if (!done && text !== said) { said = text; send('progress', { text }); } };
+    const hush = () => { clearTimeout(quiet); if (body.mode === 'change' && !done) quiet = setTimeout(() => say('Working on the updated plan'), 12000); };
     const out = {
-      progress: (text) => { if (!done) { send('progress', { text }); hush(); } },
+      progress: (text) => { if (!done) { say(text); hush(); } },
       answer: (data) => { if (!done) { done = true; clearTimeout(quiet); resolve(data); } },
       fail: (message) => { if (!done) { done = true; clearTimeout(quiet); reject(new Error(message)); } },
     };
