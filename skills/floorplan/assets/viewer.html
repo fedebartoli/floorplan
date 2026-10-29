@@ -140,7 +140,7 @@ header > * { pointer-events: auto; }
 #svg.panning { cursor: grabbing; }
 #viewport { transform-origin: 0 0; }
 #viewport.anim { transition: transform .5s var(--ease), opacity .35s var(--ease); }
-#context { position: absolute; left: 24px; top: 72px; max-width: min(520px, calc(100% - var(--pw) - 64px)); pointer-events: none; transition: opacity .3s var(--ease); }
+#context { position: absolute; left: 24px; top: calc(var(--hh, 64px) + 8px); max-width: min(520px, calc(100% - var(--pw) - 64px)); pointer-events: none; transition: opacity .3s var(--ease); }
 /* the flow bar takes the heading's place while a flow plays */
 body.in-flow #context { opacity: 0; }
 #context .k { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-3); }
@@ -148,6 +148,8 @@ body.in-flow #context { opacity: 0; }
 #context::before { content: ""; position: absolute; inset: -28px -60px -28px -40px; background: radial-gradient(closest-side, rgba(var(--bg-rgb), .9), rgba(var(--bg-rgb), 0)); z-index: -1; }
 #context h1 { margin: 6px 0 4px; font-size: 24px; font-weight: 600; letter-spacing: -.025em; }
 #context p { margin: 0; color: var(--text-2); line-height: 1.55; font-size: 14px; }
+.ctx-more { display: none; } /* the More / Less toggle under the description is for phones */
+#ask-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ---------- cards ---------- */
 .node foreignObject { pointer-events: none; overflow: visible; }
@@ -282,7 +284,7 @@ svg.dim .edge:not(.hl) { opacity: .1; }
 .mi .hint { margin-left: auto; color: var(--text-4); font-size: 12px; }
 .mi-sep { height: 1px; background: var(--hair); margin: 5px 8px; }
 .mi-title { padding: 8px 12px 6px; font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
-#flowbar { position: absolute; left: calc((100% - var(--pw)) / 2); top: 76px; transform: translateX(-50%); width: min(680px, calc(100% - var(--pw) - 48px)); padding: 14px 14px 14px 20px; display: flex; gap: 12px; align-items: center; z-index: 3; border-radius: var(--r-panel); animation: sheetIn .4s var(--ease); transition: left .45s var(--ease); }
+#flowbar { position: absolute; left: calc((100% - var(--pw)) / 2); top: calc(var(--hh, 64px) + 12px); transform: translateX(-50%); width: min(680px, calc(100% - var(--pw) - 48px)); padding: 14px 14px 14px 20px; display: flex; gap: 12px; align-items: center; z-index: 3; border-radius: var(--r-panel); animation: sheetIn .4s var(--ease); transition: left .45s var(--ease); }
 #flowbar[hidden] { display: none; }
 #flowbar .fk { font-size: 12px; color: var(--text-3); margin-bottom: 2px; }
 #flowbar .ft { flex: 1; min-width: 0; line-height: 1.5; }
@@ -308,11 +310,11 @@ svg.dim .edge:not(.hl) { opacity: .1; }
 #empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-3); pointer-events: none; }
 
 /* ---------- inspector (floating) ---------- */
-#panel { position: fixed; top: 68px; right: 16px; bottom: 16px; width: var(--panel-w); border-radius: var(--r-panel); overflow: auto; z-index: 5;
+#panel { position: fixed; top: calc(var(--hh, 64px) + 4px); right: 16px; bottom: 16px; width: var(--panel-w); border-radius: var(--r-panel); overflow: auto; z-index: 5;
   background: var(--elev); backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2); box-shadow: var(--shadow-float);
   transition: transform .45s var(--ease), opacity .3s var(--ease); }
 body.no-panel #panel { transform: translateX(24px) scale(.98); opacity: 0; pointer-events: none; }
-#panel-resize { position: fixed; top: 84px; bottom: 32px; right: calc(var(--panel-w) + 16px - 6px); width: 12px; cursor: ew-resize; z-index: 6; display: grid; place-items: center; transition: opacity .3s var(--ease); }
+#panel-resize { position: fixed; top: calc(var(--hh, 64px) + 20px); bottom: 32px; right: calc(var(--panel-w) + 16px - 6px); width: 12px; cursor: ew-resize; z-index: 6; display: grid; place-items: center; transition: opacity .3s var(--ease); }
 #panel-resize::after { content: ""; width: 4px; height: 40px; border-radius: 999px; background: rgba(var(--ink), .14); opacity: 0; transition: opacity .2s var(--ease), height .25s var(--ease), background .2s var(--ease); }
 #panel-resize:hover::after, body.resizing #panel-resize::after { opacity: 1; height: 64px; }
 body.resizing #panel-resize::after { background: rgba(var(--ink), .4); }
@@ -473,9 +475,84 @@ html.wk .card, html.wk .card * { position: static !important; transform: none !i
 html.wk .card { overflow: visible; }
 html.wk svg.dim .node:not(.hl) .card > * { opacity: 1; }
 html.wk svg.dim .node:not(.hl) foreignObject { opacity: .28; }
+/* ---------- phones and tablets: windows under 1000 px and touch screens under 1280 px (a mouse at 1000 px and wider is untouched) ---------- */
+@media (max-width: 999px), (max-width: 1279px) and (pointer: coarse) {
+  #btn-up, .brand { flex: none; }
+  header .btn:focus-visible, #zoom button:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+  /* one flowing row that wraps to a second row, so nothing runs off the edge; buttons keep their icons and lose their words */
+  header { display: flex; flex-wrap: wrap; align-items: center; height: auto; min-height: 56px; padding: 6px 12px; gap: 0 8px; }
+  .hl { flex: 1 1 240px; }
+  .hc { flex: 2 3 min(460px, 24vw); max-width: 460px; min-width: 44px; justify-content: stretch; }
+  #search-btn { width: 100%; min-width: 44px; }
+  #search-btn .st { overflow: hidden; text-overflow: ellipsis; }
+  .hr { flex: 0 0 auto; flex-wrap: wrap; }
+  .brand #proj-name { display: none; }
+  header .rel { position: static; } /* Flows and Filters open under the bar, inside the screen, wherever the bar wrapped */
+  #flowmenu, #legend { position: fixed; top: calc(var(--hh, 56px) + 4px); left: 8px; right: auto; width: min(320px, calc(100% - 16px)); max-height: 60vh; overflow: auto; }
+  .hr .btn { position: relative; padding: 0; justify-content: center; }
+  .hr .btn .bl { display: none; }
+  .hr .btn .badge { position: absolute; }
+}
+@media (max-width: 999px), (pointer: coarse) {
+  /* every control in the bar, and the zoom buttons, are at least 44 px */
+  header .btn, #search-btn { height: 44px; min-width: 44px; }
+  header .btn.icon { width: 44px; }
+  #ask-mode button { height: 44px; }
+  #crumbs button { min-height: 44px; }
+  #zoom button { width: 44px; height: 44px; }
+}
+@media (max-width: 999px), (max-width: 1279px) and (pointer: coarse) {
+  header .hr .btn { width: 44px; }
+  header .hr .btn .badge { top: 4px; right: 2px; }
+  /* the zoom buttons move to the top of the map, left of the details panel, so the ask bar can't cover them */
+  #zoom { left: auto; right: calc(var(--pw) + 16px); bottom: auto; top: calc(var(--hh, 56px) + 8px); flex-direction: column; border-radius: 26px; }
+  #context { max-width: min(520px, calc(100% - var(--pw) - 104px)); } /* stops short of the zoom buttons */
+}
+@media (max-width: 700px) {
+  :root { --gutter: 20px; }
+  body, body.no-panel { --pw: 0px; }
+  header { padding: 6px 8px; gap: 0 4px; }
+  .hl { flex-basis: 120px; }
+  .hr { flex: 1 1 100%; justify-content: space-between; }
+  .brand { padding-right: 0; }
+  .hc { flex: 0 0 44px; }
+  #search-btn { padding: 0; justify-content: center; gap: 0; }
+  #search-btn .st, #search-btn .kbd { display: none; }
+  #crumbs button { padding: 6px 8px; max-width: 160px; }
+  #crumbs button:not(.cur), #crumbs .sep { display: none; } /* only where you are; the Up arrow goes back */
+  #context { left: 16px; right: 16px; max-width: none; }
+  #context h1 { font-size: 20px; }
+  /* the description folds to one line with a More / Less toggle, so it doesn't fill the screen */
+  #context.folded .cd { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+  #context.folded .cx { display: none; }
+  #context .ctx-more:not([hidden]) { display: inline-flex; align-items: center; min-height: 44px; margin: -8px 0 -12px -10px; padding: 0 10px; border: 0; border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; pointer-events: auto; }
+  #context .ctx-more:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+  /* the warning about connecting an AI tool shows only while someone is using the ask bar */
+  #ask:not(.asking) #ask-warn { display: none; }
+  /* the details panel becomes a sheet at the bottom: closed until a box is tapped */
+  #panel { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: min(56vh, 480px); }
+  body.no-panel #panel { transform: translateY(24px) scale(.98); visibility: hidden; transition: transform .45s var(--ease), opacity .3s var(--ease), visibility 0s linear .45s; } /* closed: out of the tab order and the screen reader's reach */
+  #panel-resize { display: none; }
+  body:not(.no-panel) #ask { display: none; }
+  #ask { left: 50%; bottom: 8px; width: calc(100% - 16px); min-width: 0; }
+  #ask-input { min-width: 0; }
+  #ask-form { padding-left: 14px; }
+  #flowbar { left: 50%; width: calc(100% - 16px); }
+  #toast { left: 50%; max-width: calc(100% - 16px); }
+  #loading { left: 50%; }
+  header #zoom { position: static; flex: none; flex-direction: row; padding: 0; gap: 0; border-radius: 22px; } /* moved into the top row, left of the search icon */
+  /* menus open as full-width cards under the bar */
+  #flowmenu, #legend { position: fixed; top: calc(var(--hh, 56px) + 4px); left: 8px; right: 8px; width: auto; max-height: 60vh; overflow: auto; }
+  body #tour, body #cloud-card { left: 8px; right: 8px; width: auto; }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 999px), (prefers-reduced-motion: reduce) and (pointer: coarse) {
+  #panel, body.no-panel #panel, #viewport.anim, #ask, #flowbar, #zoom button { transition: none; }
+  #panel > *, #ask-warn { animation: none; }
+}
 </style>
 </head>
 <body>
+<script>if (matchMedia('(max-width: 700px)').matches && !/[#&]s=/.test(location.hash)) document.body.classList.add('no-panel'); // a phone starts with the details closed, so the panel doesn't flash open and shut</script>
 <div id="stage">
   <svg id="svg" xmlns="http://www.w3.org/2000/svg"><g id="viewport"></g></svg>
   <div id="context"></div>
@@ -488,6 +565,7 @@ html.wk svg.dim .node:not(.hl) foreignObject { opacity: .28; }
   <div id="ask">
     <div id="ask-sheet" class="glass" hidden></div>
     <div id="ask-warn" hidden></div>
+    <div id="ask-live" role="status" aria-live="polite"></div>
     <form id="ask-form" class="glass" autocomplete="off">
       <span id="ask-chips"></span>
       <input id="ask-input" placeholder="Ask anything about this codebase…" spellcheck="false">
@@ -502,17 +580,17 @@ html.wk svg.dim .node:not(.hl) foreignObject { opacity: .28; }
 <header>
   <div class="hl">
     <div class="brand"><img class="mark" src="__FLOORPLAN_LOGO__" alt="Floorplan" title="Floorplan"><span id="proj-name"></span></div>
-    <button class="btn icon" id="btn-up" title="Up one level (Backspace)" hidden><svg class="i" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></button>
+    <button class="btn icon" id="btn-up" title="Up one level (Backspace)" aria-label="Up one level" hidden><svg class="i" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></button>
     <nav id="crumbs"></nav>
   </div>
   <div class="hc">
-    <button class="btn" id="search-btn"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search files, routes, modules<span class="kbd">/</span></button>
+    <button class="btn" id="search-btn" aria-label="Search files, routes, modules"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="st">Search files, routes, modules</span><span class="kbd">/</span></button>
   </div>
   <div class="hr">
     <div id="hdr-ext" class="hr-ext"></div>
-    <div class="rel"><button class="btn" id="flows-btn"><svg class="i" viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></svg>Flows</button><div id="flowmenu" class="menu glass"></div></div>
-    <div class="rel"><button class="btn icon" id="filters-btn" title="Connection types"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button><div id="legend" class="menu glass"></div></div>
-    <button class="btn icon" id="btn-panel" title="Toggle details (P)"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/></svg></button>
+    <div class="rel"><button class="btn" id="flows-btn" aria-label="Flows"><svg class="i" viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></svg><span class="bl">Flows</span></button><div id="flowmenu" class="menu glass"></div></div>
+    <div class="rel"><button class="btn icon" id="filters-btn" title="Connection types" aria-label="Connection types"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button><div id="legend" class="menu glass"></div></div>
+    <button class="btn icon" id="btn-panel" title="Toggle details (P)" aria-label="Toggle details" aria-expanded="true"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/></svg></button>
   </div>
 </header>
 <aside id="panel"></aside>
@@ -1168,9 +1246,11 @@ function setT(t, animate) {
 /** The canvas area not covered by the header, context title, details panel and ask bar. */
 function freeArea() {
   const r = stageRect();
-  const panelW = document.body.classList.contains('no-panel') ? 0 : $('#panel').offsetWidth + 32;
-  const top = 72 + Math.min(130, $('#context').offsetHeight);
-  const bottom = $('#ask').offsetHeight + 36;
+  const open = !document.body.classList.contains('no-panel');
+  const sheet = isPhone(); // on a phone the details panel is a sheet at the bottom, not a column at the side
+  const panelW = open && !sheet ? $('#panel').offsetWidth + 32 : 0;
+  const top = ($('header').offsetHeight || 64) + 8 + Math.min(130, $('#context').offsetHeight);
+  const bottom = open && sheet ? $('#panel').offsetHeight + 24 : $('#ask').offsetHeight + 36;
   return { x: 16, y: top, w: Math.max(200, r.width - panelW - 32), h: Math.max(140, r.height - top - bottom) };
 }
 function fit(animate) {
@@ -1250,13 +1330,26 @@ function open(item) {
   if (item.startsWith('m:')) return;
   if (state.container === 'q:answer' && !drillable(item)) { reveal(item); return; }
   if (!drillable(item)) { select(item); return; }
+  closeSheet();
   go(item, { zoomFrom: item });
 }
-function up() { if (state.container === 'root') return; const from = state.container; go(parentOf.get(from) || 'root', { select: from }); }
+function up() { if (state.container === 'root') return; closeSheet(); const from = state.container; go(parentOf.get(from) || 'root', { select: from }); }
 function reveal(item) {
   if (item === 'root') return go('root');
   const container = parentOf.get(item) || 'root';
   go(container, { select: item, after: () => { const g = state.chipEls.get(item); if (g) { g.classList.remove('flash'); void g.getBBox(); g.classList.add('flash'); centerOn(item); } } });
+}
+/** Moves the map just far enough that a box isn't hidden behind the top bar or the sheet; the zoom and everything else stay as they are. */
+function bringIntoView(item) {
+  const c = state.layout?.children.find((x) => x.id === item); if (!c) return;
+  const a = freeArea(), { k, x, y } = state.t;
+  const box = { l: c.x * k + x, t: c.y * k + y, w: c.width * k, h: c.height * k };
+  let dx = 0, dy = 0;
+  if (box.l + box.w > a.x + a.w) dx = a.x + a.w - (box.l + box.w);
+  if (box.l + dx < a.x) dx = a.x - box.l;
+  if (box.t + box.h > a.y + a.h) dy = a.y + a.h - (box.t + box.h);
+  if (box.t + dy < a.y) dy = a.y - box.t;
+  if (dx || dy) setT({ k, x: x + dx, y: y + dy }, true);
 }
 function centerOn(item) {
   const c = state.layout?.children.find((x) => x.id === item); if (!c) return;
@@ -1266,7 +1359,11 @@ function centerOn(item) {
 }
 
 // ======================= selection =======================
-function select(sel) { custom.panel = null; state.selected = sel; if (typeof sel === 'string' || sel === null) setHash(state.container, sel); applySelection(); renderPanel(); }
+function select(sel) {
+  custom.panel = null; state.selected = sel; if (typeof sel === 'string' || sel === null) setHash(state.container, sel); applySelection(); renderPanel();
+  // on a phone, tapping a box shows its details: open the sheet, then bring the box into the part of the screen the sheet leaves free
+  if (sel && isPhone() && document.body.classList.contains('no-panel')) { setPanel(true); if (typeof sel === 'string') bringIntoView(sel); }
+}
 function applySelection() {
   const sel = state.selected;
   svg.classList.remove('dim');
@@ -1294,7 +1391,22 @@ function renderContext() {
   const i = info(state.container);
   const kind = state.container === 'root' ? 'Overview' : i.type === 'node' ? i.kind.charAt(0).toUpperCase() + i.kind.slice(1) : i.type === 'dir' ? 'Folder' : i.type === 'file' ? 'File' : i.type;
   const badge = state.container === 'root' ? '' : `<span class="ico" style="--c:${colorOf(i)}">${icon(iconKey(i))}</span>`;
-  $('#context').innerHTML = `<div class="k">${badge}${h(kind)}</div><h1>${h(i.name)}</h1>${i.desc ? `<p>${h(i.desc)}</p>` : ''}${state.view?.hidden ? `<p style="color:var(--text-3);font-size:12.5px;margin-top:8px">${state.view.hidden} more exports aren't imported by name anywhere; they're listed in the details panel.</p>` : ''}`;
+  $('#context').innerHTML = `<div class="k">${badge}${h(kind)}</div><h1>${h(i.name)}</h1>${i.desc ? `<p class="cd" id="ctx-desc">${h(i.desc)}</p>` : ''}${state.view?.hidden ? `<p class="cx" style="color:var(--text-3);font-size:12.5px;margin-top:8px">${state.view.hidden} more exports aren't imported by name anywhere; they're listed in the details panel.</p>` : ''}${i.desc ? '<button type="button" class="ctx-more" aria-controls="ctx-desc" hidden></button>' : ''}`;
+  foldContext();
+}
+/** On a phone the description folds to one line; the More / Less toggle shows only when there's more to read, and the choice is remembered on this device. */
+function foldContext() {
+  const ctx = $('#context'), more = ctx.querySelector('.ctx-more'), desc = ctx.querySelector('.cd');
+  if (!more || !desc) return;
+  const open = store.get('contextOpen', false);
+  ctx.classList.add('folded');
+  const long = desc.scrollHeight > desc.clientHeight + 1 || !!ctx.querySelector('.cx');
+  ctx.classList.toggle('folded', !open);
+  more.hidden = !long;
+  desc.inert = isPhone() && long && !open; // folded on a phone: links on the hidden lines can't be tabbed to; More opens it
+  more.textContent = open ? 'Less' : 'More';
+  more.setAttribute('aria-expanded', String(open));
+  more.onclick = () => { store.set('contextOpen', !open); foldContext(); };
 }
 function renderCrumbs() {
   const c = $('#crumbs'); c.innerHTML = '';
@@ -1912,6 +2024,7 @@ function showChangeResult() {
   if (c.undone) { toast('Change undone'); return; }
   if (Date.now() - c.at > 120000) return;
   const items = (G.recent?.items || []).filter((x) => parentOf.has(x.id)).map((x) => ({ id: x.id, note: x.note }));
+  closeSheet(); // a card in the link opens the details sheet on a phone, and it would sit on top of this summary
   sheetShell(c.question, `<p><strong>${h(c.title || 'Plan updated')}</strong></p>${md(c.summary)}
     <div class="sheet-actions">${items.length ? `<button class="btn soft" data-cr="show">${iconI('search')}Show ${plural(items.length, 'change')}</button>` : ''}<button class="btn soft" data-cr="undo">${iconI('left')}Undo</button></div>
     ${c.followups?.length ? `<div class="followups">${c.followups.slice(0, 3).map((f) => `<button data-cf="${h(f)}">${h(f)}</button>`).join('')}</div>` : ''}`);
@@ -2064,8 +2177,55 @@ $('#panel-resize').addEventListener('pointerdown', (ev) => {
   handle.addEventListener('pointercancel', end, { once: true });
 });
 $('#panel-resize').addEventListener('dblclick', () => { setPanelWidth(360); store.set('panelWidth', 360); });
-const setPanel = (on) => { const was = !document.body.classList.contains('no-panel'); document.body.classList.toggle('no-panel', !on); store.set('panel', on); if (was !== on) fit(true); };
-document.body.classList.toggle('no-panel', !store.get('panel', true));
+// phones: the details open as a sheet and start closed; the choice isn't saved, so it can't close the side panel on a desktop that shares this storage
+const phoneQuery = matchMedia('(max-width: 700px)');
+const isPhone = () => phoneQuery.matches;
+const closeSheet = () => { if (isPhone() && !document.body.classList.contains('no-panel')) setPanel(false); }; // going into or out of a box clears the sheet away so the map shows
+svg.addEventListener('click', closeSheet); // tapping empty space puts the sheet away too
+// on a phone the warning about connecting an AI tool shows only while someone is using the ask bar: a tap or focus on it shows it, leaving hides it.
+// The input may be switched off when nothing is connected, so a tap anywhere on the bar counts. When it appears it is read out once.
+const askBox = $('#ask'), askLive = $('#ask-live');
+const askOn = (on) => {
+  if (askBox.classList.contains('asking') === on) return;
+  askBox.classList.toggle('asking', on);
+  askLive.textContent = '';
+  if (on && isPhone() && !warn.hidden) setTimeout(() => { askLive.textContent = warn.querySelector('span')?.textContent || ''; }, 50);
+};
+['pointerdown', 'touchstart', 'focusin'].forEach((t) => askBox.addEventListener(t, () => askOn(true), { passive: true }));
+window.addEventListener('pointerdown', (ev) => { if (!askBox.contains(ev.target)) askOn(false); }, true);
+askBox.addEventListener('focusout', (ev) => { if (!askBox.contains(ev.relatedTarget)) askOn(false); });
+window.addEventListener('resize', foldContext); // whether there is more to read depends on the width
+// with nothing connected the input is switched off, so on a phone the bar itself takes keyboard focus to show the note
+const askForm = $('#ask-form');
+const askTab = () => { const on = isPhone() && askInput.disabled && !warn.hidden; if (on) { askForm.tabIndex = 0; askForm.setAttribute('aria-label', 'Ask bar: show why asking is unavailable'); } else { askForm.removeAttribute('tabindex'); askForm.removeAttribute('aria-label'); } };
+new MutationObserver(askTab).observe(warn, { attributes: true, attributeFilter: ['hidden'] });
+new MutationObserver(askTab).observe(askInput, { attributes: true, attributeFilter: ['disabled'] });
+phoneQuery.addEventListener('change', askTab); askTab();
+// the sheet is a labelled, non-modal dialog on a phone; keyboard users get focus moved into it and back out when it closes
+let keyboardUser = false, sheetReturn = null;
+window.addEventListener('keydown', () => { keyboardUser = true; }, true);
+window.addEventListener('pointerdown', () => { keyboardUser = false; }, true);
+const sheetRole = () => { if (isPhone()) { panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Details'); panel.tabIndex = -1; } else { panel.removeAttribute('role'); panel.removeAttribute('aria-label'); panel.removeAttribute('tabindex'); } };
+phoneQuery.addEventListener('change', sheetRole); sheetRole();
+const setPanel = (on) => {
+  const was = !document.body.classList.contains('no-panel'); document.body.classList.toggle('no-panel', !on); $('#btn-panel').setAttribute('aria-expanded', String(on));
+  if (!isPhone()) store.set('panel', on);
+  if (was !== on && !isPhone()) fit(true);
+  if (was !== on && isPhone()) {
+    if (on && keyboardUser) { sheetReturn = document.activeElement; panel.focus({ preventScroll: true }); }
+    else if (!on && sheetReturn) { if (panel.contains(document.activeElement) || document.activeElement === document.body) sheetReturn.focus?.({ preventScroll: true }); sheetReturn = null; }
+  }
+};
+document.body.classList.toggle('no-panel', isPhone() || !store.get('panel', true));
+$('#btn-panel').setAttribute('aria-expanded', String(!document.body.classList.contains('no-panel')));
+// the top bar can be one or two rows tall: everything under it follows its real height
+const headerEl = document.querySelector('header');
+const syncHeader = () => document.documentElement.style.setProperty('--hh', headerEl.offsetHeight + 'px');
+new ResizeObserver(syncHeader).observe(headerEl); syncHeader(); window.addEventListener('resize', syncHeader);
+// on a phone the zoom buttons move into the top row, beside the search icon, and back to the map on a wider screen
+const zoomEl = $('#zoom'), zoomHome = zoomEl.parentNode, zoomNext = zoomEl.nextSibling;
+const placeZoom = () => { if (isPhone()) headerEl.insertBefore(zoomEl, headerEl.querySelector('.hc')); else zoomHome.insertBefore(zoomEl, zoomNext); syncHeader(); };
+phoneQuery.addEventListener('change', placeZoom); placeZoom();
 $('#btn-panel').onclick = () => setPanel(document.body.classList.contains('no-panel'));
 Object.assign(state.kinds, store.get('kinds', {}));
 window.addEventListener('keydown', (ev) => {
@@ -2074,6 +2234,7 @@ window.addEventListener('keydown', (ev) => {
   else if (ev.key === 'Backspace') { ev.preventDefault(); up(); }
   else if (ev.key === 'Escape') {
     if (!ctxEl.hidden || fm.classList.contains('open') || legendEl.classList.contains('open')) { closeMenu(); fm.classList.remove('open'); legendEl.classList.remove('open'); }
+    else if (isPhone() && !document.body.classList.contains('no-panel')) closeSheet(); // on a phone the first Escape puts the details sheet away
     else if (state.flow) stopFlow(); else if (state.selected) select(null); else up();
   }
   else if (ev.key === 'f' || ev.key === 'F') fit(true);
@@ -2135,11 +2296,12 @@ window.Floorplan = Object.freeze({
   freeArea: () => freeArea(),
   closeMenus: () => { closeMenu(); fm.classList.remove('open'); legendEl.classList.remove('open'); },
   // asking
-  addAskContext, ask: (text) => { askInput.value = text; submitAsk(); }, askEngine: () => askState.engine,
+  addAskContext, ask: (text) => { closeSheet(); askInput.value = text; submitAsk(); }, askEngine: () => askState.engine,
   // a blueprint's Change mode: whether it's available here, and putting a request in the Ask bar to finish and send
   canChange: () => canChange(),
   draftChange(text) {
     if (!canChange()) return false;
+    closeSheet(); // on a phone the open details sheet hides the ask bar, so the request would be typed where nobody can see it
     setAskMode('change');
     askInput.value = text;
     askInput.focus();
@@ -2149,10 +2311,11 @@ window.Floorplan = Object.freeze({
   // chrome
   addHeaderButton({ id, label = '', icon: ic, svg, title = '', onClick }) {
     const b = document.createElement('button');
-    b.className = 'btn' + (label ? '' : ' icon'); if (id) b.id = id; b.title = title || label;
+    b.className = 'btn' + (label ? '' : ' icon'); if (id) b.id = id; b.title = title || label; if (label) b.setAttribute('aria-label', label);
     b.innerHTML = `${svg ? `<svg class="i" viewBox="0 0 24 24">${svg}</svg>` : ic ? iconI(ic) : ''}${label ? `<span class="bl">${h(label)}</span>` : ''}`;
     b.onclick = (ev) => { ev.stopPropagation(); onClick?.(ev, b); };
     $('#hdr-ext').appendChild(b);
+    syncHeader(); // a new button can make the bar a row taller
     return b;
   },
   addPanelSection(where, fn) { (ext.sections[where] ||= []).push(fn); },
@@ -2168,6 +2331,7 @@ technicalFlag = !!store.get('technical', false);
 
 const init = readHash();
 state.container = init.v; state.selected = init.s;
+if (init.s && isPhone()) { document.body.classList.remove('no-panel'); $('#btn-panel').setAttribute('aria-expanded', 'true'); } // a shared link to a box opens its details
 const fontsReady = document.fonts?.ready ? Promise.race([document.fonts.ready, new Promise((ok) => setTimeout(ok, 1500))]) : Promise.resolve();
 fontsReady.then(() => render({ after: () => { renderPanel(); emit('ready', {}); if (PLAN && window.FLOORPLAN_SERVER) showChangeResult(); } }));
 })();

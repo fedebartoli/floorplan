@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Fits phones and tablets:** the top bar wraps instead of running off the screen, the details open as a sheet at the bottom of a phone (tap a box to see them), the long description under the title folds to a line with More / Less, and every control is at least 44 px to tap. Nothing changes with a mouse at 1000 px and wider. Requested in #18 and built by @menachem-kurkus in #19.
+
 ## 0.4.2 (2026-10-30)
 
 - **Is it safe to install?** A new page lists everything Floorplan does on your computer: no hooks, MCP servers, dependencies or downloads, its one outbound request, and every program it runs. A test enforces it on every change, and each release now includes `CHECKSUMS.txt`, so you can confirm your installed copy matches it (`node tools/checksums.mjs --check <folder>`).

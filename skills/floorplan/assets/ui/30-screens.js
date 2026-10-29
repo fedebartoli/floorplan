@@ -101,8 +101,10 @@
   }
   function place() {
     const r = btn.getBoundingClientRect();
+    const w = Math.min(340, innerWidth - 16); // never wider than the screen
     menu.style.top = r.bottom + 8 + 'px';
-    menu.style.right = Math.max(8, innerWidth - r.right) + 'px';
+    menu.style.width = w + 'px';
+    menu.style.right = Math.min(Math.max(8, innerWidth - r.right), innerWidth - 8 - w) + 'px';
   }
   function closeMenu() { menu.classList.remove('open'); }
   const isOpen = () => menu.classList.contains('open');

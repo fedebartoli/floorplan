@@ -137,6 +137,7 @@
     btn.style.setProperty('--hc-badge-text', 'var(--on-sev-text)');
     btn.appendChild(b);
   } else btn.classList.add('calm');
+  btn.setAttribute('aria-label', btn.title); // keeps its name, with the count, when only the icon shows
 
   // Selecting something else on the map while the list is open shows that item instead.
   SC.on('panel', () => { if (isOpen && openedAt && where() !== openedAt) { isOpen = false; SC.closePanel(); } });
