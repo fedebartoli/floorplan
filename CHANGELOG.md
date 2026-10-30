@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2 (2026-10-30)
 
 - **The map's server answers only to this computer's own addresses:** it refuses requests under any other host name, so a website that points its domain at 127.0.0.1 (DNS rebinding) can't load the map, read its token and ask questions about your code.
 
