@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.4.2 (2026-10-30)
 
 - **Is it safe to install?** A new page lists everything Floorplan does on your computer: no hooks, MCP servers, dependencies or downloads, its one outbound request, and every program it runs. A test enforces it on every change, and each release now includes `CHECKSUMS.txt`, so you can confirm your installed copy matches it (`node tools/checksums.mjs --check <folder>`).
+- **Checked by GitHub's code scanner:** CodeQL now scans every change. Its first scan found six spots to tighten, all fixed: complete escaping in three places, the "Made with Floorplan" link built without reusing page text as HTML, and plain error messages on the map when Undo or Export fails, with the details in the map server's output.
 
 ## 0.4.1 (2026-10-30)
 
