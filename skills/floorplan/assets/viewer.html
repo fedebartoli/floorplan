@@ -1860,7 +1860,8 @@ function cancelAsk() {
 // updated plan and redraws the map, every open tab reloads, and the new and changed cards are highlighted
 // as recent work. What changed is kept across that reload in sessionStorage, with an Undo.
 const CHANGE_KEY = 'floorplan-change';
-const canChange = () => PLAN && askState.engine === 'cli';
+// a server whose engine can't be held to the plan's format says change: false
+const canChange = () => PLAN && askState.engine === 'cli' && window.FLOORPLAN_SERVER?.change !== false;
 function setAskMode(m) {
   askState.mode = canChange() && m === 'change' ? 'change' : 'ask';
   $('#ask-mode')?.querySelectorAll('button').forEach((b) => { b.classList.toggle('on', b.dataset.m === askState.mode); b.setAttribute('aria-pressed', String(b.dataset.m === askState.mode)); });
