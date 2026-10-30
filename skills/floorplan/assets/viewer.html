@@ -2036,7 +2036,11 @@ if (EXPORTED) {
   const made = document.createElement('a');
   made.id = 'madewith'; made.className = 'glass';
   made.href = 'https://github.com/haydenschmitty/floorplan'; made.target = '_blank'; made.rel = 'noopener';
-  made.innerHTML = `Made with <img class="mark" src="${$('.brand .mark').src}" alt=""><b>Floorplan</b><span class="x">· free and open source</span>`;
+  const logo = $('.brand .mark').cloneNode();
+  logo.alt = '';
+  const name = document.createElement('b'); name.textContent = 'Floorplan';
+  const free = document.createElement('span'); free.className = 'x'; free.textContent = '· free and open source';
+  made.append('Made with', logo, name, free);
   $('#stage').appendChild(made);
 }
 document.title = `${G.project.name} map`;

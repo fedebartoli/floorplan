@@ -37,7 +37,7 @@ export function globToRegExp(glob) {
     if (c === '[' && (i === 0 || g[i - 1] === '/')) {
       const end = g.indexOf('/', i) < 0 ? g.length : g.indexOf('/', i);
       const seg = g.slice(i, end);
-      if (/^\[\[?(\.\.\.)?[A-Za-z_$][\w$-]*\]\]?$/.test(seg)) { re += seg.replace(/[.[\]$]/g, '\\$&'); i = end; continue; }
+      if (/^\[\[?(\.\.\.)?[A-Za-z_$][\w$-]*\]\]?$/.test(seg)) { re += seg.replace(/[.[\]$\\]/g, '\\$&'); i = end; continue; }
     }
     if (c === '[') {
       const j = g.indexOf(']', i + 1);

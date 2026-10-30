@@ -11,7 +11,10 @@ let root, html;
 before(() => { root = shopApp(); scanAndBuild(root); html = fs.readFileSync(path.join(root, 'floorplan', 'index.html'), 'utf8'); });
 after(() => cleanup(root));
 
-const bootScript = () => html.match(/<script>\s*\/\* Theme: runs before[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g, '');
+const bootScript = () => {
+  const at = html.indexOf('/* Theme: runs before');
+  return html.slice(html.lastIndexOf('<script>', at) + '<script>'.length, html.indexOf('</script>', at));
+};
 
 /** Runs the boot script with a pretend device and returns what it did to the page. */
 function boot({ saved, deviceLight = false, storageThrows = false } = {}) {
