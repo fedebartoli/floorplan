@@ -105,6 +105,11 @@ function valueLooksReal(v, name) {
   return v.length >= 16 && entropy(v) >= 3.2 && /\d/.test(v) && /[a-zA-Z]/.test(v);
 }
 
+// Tokens that are public by design, because the browser has to send them: Cloudflare Web Analytics'
+// beacon (data-cf-beacon='{"token":"…"}') and Mapbox public tokens (pk.…)
+const PUBLIC_TOKEN_LINE = /data-cf-beacon|cloudflareinsights\.com/i;
+const PUBLIC_TOKEN_VALUE = /^pk\.[\w-]{20,}\.[\w-]{10,}$/;
+
 /** 1-based line numbers inside docstrings or block comments (examples there aren't real config). */
 function docLines(src, lang) {
   const set = new Set();
@@ -153,12 +158,12 @@ function findSecrets(src, f, out) {
   const quoted = /(["']?)([A-Za-z_][\w.-]*)\1\s*(?::=|=>|=|:)\s*(?:[rbuRBU]{1,2})?(["'`])([^"'`\n]{6,200})\3/g;
   const unquoted = /^\s*(?:export\s+)?([A-Za-z_][\w.-]*)\s*[:=]\s*([^\s#'"]{6,200})\s*(?:#.*)?$/;
   lines.forEach((text, i) => {
-    if (text.length > 400 || ENV_LOOKUP.test(text) || inDoc.has(i + 1) || /^\s*(#|\/\/|\*|\/\*|<!--)/.test(text)) return;
+    if (text.length > 400 || ENV_LOOKUP.test(text) || PUBLIC_TOKEN_LINE.test(text) || inDoc.has(i + 1) || /^\s*(#|\/\/|\*|\/\*|<!--)/.test(text)) return;
     const pairs = [...text.matchAll(quoted)].map((m) => [m[2], m[4]]);
     if (!pairs.length && (f.category === 'config' && CONFIG_LANGS.has(f.lang))) { const u = unquoted.exec(text); if (u) pairs.push([u[1], u[2]]); }
     for (const [name, value] of pairs) {
       const n = snake(name.split('.').pop());
-      if (!SECRET_NAME.test(n) || PUBLIC_NAME.test(n) || !valueLooksReal(value, n)) continue;
+      if (!SECRET_NAME.test(n) || PUBLIC_NAME.test(n) || PUBLIC_TOKEN_VALUE.test(value) || !valueLooksReal(value, n)) continue;
       if (throwawayDb && /^(postgres|mysql|mariadb|mongo(_initdb_root)?|redis|pg|rabbitmq_default|db|database)_(root_)?(password|pass|pwd)$/.test(n)) continue;
       add(i + 1, { what: kindFromName(name), name: name.split('.').pop(), sev: 'high', hint: mask(value, PASSWORD_NAME.test(n)), generic: true });
     }
