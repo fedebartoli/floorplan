@@ -104,6 +104,14 @@ Files in `skills/floorplan/assets/ui/` are inlined into every map, in name order
 
 `20-health.js` and `25-recent.js` are good examples.
 
+## Adding an agent
+
+There are two lists, and an agent can be on one or both:
+- **The agent that built the map**, in `scripts/lib/agent.mjs`: an entry in `DETECT` that recognises it from the variables it sets for every command it runs. The map records it, so its prompts name the right agent.
+- **The agent that answers questions**, in `assets/serve.mjs`: an entry in `ENGINES` with its name, where to get it, `find` (where its CLI lives, plus a `--<name> <path>` override) and `run` (the arguments and how to read its output into progress and an answer).
+
+An engine must be read-only in a way its CLI enforces, not only because the prompt asks; if it can't be, say so plainly in the docs. Set `structured: true` only when the CLI holds answers to the schema, because changing a blueprint from the map relies on it; without it, the map doesn't offer Change. Never take the command to run from the page or from saved settings. Add a stand-in CLI to `tests/fixtures/fake-cli/` and tests like `ask.test.mjs`.
+
 ## Guidelines
 
 - **No dependencies.** The scripts must run anywhere Node 18+ does, with nothing to install.

@@ -39,7 +39,10 @@ async function served(replies, root) {
     server.stdout.on('data', (d) => { out += d; const m = /Floorplan: (http:\/\/\S+)/.exec(out); if (m) { clearTimeout(timer); resolve(m[1]); } });
     server.on('exit', (code) => reject(new Error(`server exited (${code}): ${out}`)));
   });
-  const token = JSON.parse(/window\.FLOORPLAN_SERVER=(\{.*?\});/.exec(await (await fetch(base + '/')).text())[1]).token;
+  const page = JSON.parse(/window\.FLOORPLAN_SERVER=(\{.*?\});/.exec(await (await fetch(base + '/')).text())[1]);
+  const token = page.token;
+  // the stand-in is Claude Code, which holds its answers to a schema, so the map offers Change
+  assert.equal(page.change, true);
   const post = (p, body) => fetch(base + p, { method: 'POST', headers: { 'content-type': 'application/json', 'x-floorplan-token': token }, body: JSON.stringify(body || {}) });
   return {
     root,

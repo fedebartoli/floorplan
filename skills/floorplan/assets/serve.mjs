@@ -78,22 +78,34 @@ function codexApp() {
       .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
   } catch { return []; }
 }
+// The agents that can answer, one entry each: what it's called, where to get it, how to find its CLI, how to
+// run one request (run, below), and whether its answers are held to a schema (structured). Changing a
+// blueprint from the map needs that, so Change is offered only with a structured engine. schemaFile: the
+// CLI reads its schema from a file rather than the command line.
 const ENGINES = {
-  claude: () => resolveCli(given('claude') || [
-    ...which('claude'),
-    path.join(HOME, '.local', 'bin', process.platform === 'win32' ? 'claude.exe' : 'claude'),
-    ...(process.platform === 'win32' ? [path.join(process.env.APPDATA || '', 'npm', 'claude.cmd')] : []),
-  ], ['@anthropic-ai', 'claude-code', 'cli.js']),
-  codex: () => resolveCli(given('codex') || [...which('codex'), ...codexApp()], ['@openai', 'codex', 'bin', 'codex.js']),
+  claude: {
+    name: 'Claude Code CLI', site: 'https://docs.claude.com/en/docs/claude-code', structured: true,
+    find: () => resolveCli(given('claude') || [
+      ...which('claude'),
+      path.join(HOME, '.local', 'bin', process.platform === 'win32' ? 'claude.exe' : 'claude'),
+      ...(process.platform === 'win32' ? [path.join(process.env.APPDATA || '', 'npm', 'claude.cmd')] : []),
+    ], ['@anthropic-ai', 'claude-code', 'cli.js']),
+    run: claudeRun,
+  },
+  codex: {
+    name: 'Codex', site: 'https://developers.openai.com/codex', structured: true, schemaFile: true,
+    find: () => resolveCli(given('codex') || [...which('codex'), ...codexApp()], ['@openai', 'codex', 'bin', 'codex.js']),
+    run: codexRun,
+  },
 };
-// --engine (or FLOORPLAN_ENGINE) decides; otherwise the agent that built the map, then the other one
+// --engine (or FLOORPLAN_ENGINE) decides; otherwise the agent that built the map, then the others in order
 const builtBy = (() => { try { return JSON.parse(fs.readFileSync(path.join(here, 'graph.json'), 'utf8')).meta?.agent; } catch { return null; } })();
 const asked = opt('engine', process.env.FLOORPLAN_ENGINE);
 const isEngine = (k) => typeof k === 'string' && Object.hasOwn(ENGINES, k);
 const want = isEngine(asked) ? asked : isEngine(builtBy) ? builtBy : 'claude';
 let engine = null, cli = null;
-for (const k of isEngine(asked) ? [asked] : [want, ...Object.keys(ENGINES).filter((k) => k !== want)]) { cli = ENGINES[k](); if (cli) { engine = k; break; } }
-const NAME = { claude: 'Claude Code CLI', codex: 'Codex' };
+for (const k of isEngine(asked) ? [asked] : [want, ...Object.keys(ENGINES).filter((k) => k !== want)]) { cli = ENGINES[k].find(); if (cli) { engine = k; break; } }
+const canChange = !engine || ENGINES[engine].structured;
 // Started from inside a Claude Code or Codex session? Don't let the CLI think it's nested in it.
 function cliEnv() {
   const env = { ...process.env };
@@ -105,7 +117,7 @@ if (cli) { try { version = execFileSync(cli.cmd, [...cli.args, '--version'], { e
 
 // The page, the graph, and the instructions and answer schema (from query.mjs's inlined graph-query
 // code). Loaded at start and again whenever the map is rebuilt.
-const inject = `<script>window.FLOORPLAN_SERVER=${JSON.stringify({ token, cli: !!cli, engine, want, version, model: model || null })};</script>`;
+const inject = `<script>window.FLOORPLAN_SERVER=${JSON.stringify({ token, cli: !!cli, engine, want, version, model: model || null, change: canChange })};</script>`;
 let page, G, core, MODES;
 function load() {
   const html = fs.readFileSync(path.join(here, 'index.html'), 'utf8');
@@ -120,9 +132,9 @@ function load() {
   MODES = {
     ask: { instructions: core.floorplanAskInstructions(G, 'cli'), schema: core.FLOORPLAN_ANSWER_SCHEMA, file: path.join(here, '.cache', 'answer-schema.json') },
     flow: { instructions: core.floorplanFlowInstructions(G, 'cli'), schema: core.FLOORPLAN_FLOW_SCHEMA, file: path.join(here, '.cache', 'flow-schema.json') },
-    ...(G.meta?.blueprint ? { change: { instructions: core.floorplanChangeInstructions(G), schema: core.FLOORPLAN_CHANGE_SCHEMA, file: path.join(here, '.cache', 'change-schema.json') } } : {}),
+    ...(G.meta?.blueprint && canChange ? { change: { instructions: core.floorplanChangeInstructions(G), schema: core.FLOORPLAN_CHANGE_SCHEMA, file: path.join(here, '.cache', 'change-schema.json') } } : {}),
   };
-  if (engine === 'codex') {
+  if (ENGINES[engine]?.schemaFile) {
     fs.mkdirSync(path.join(here, '.cache'), { recursive: true });
     for (const m of Object.values(MODES)) fs.writeFileSync(m.file, JSON.stringify(strict(m.schema)));
   }
@@ -292,7 +304,7 @@ const CLOSED = Symbol('closed'); // the browser went away mid-request
 /** Runs the agent once for a request and resolves with its answer, streaming progress through `send`. */
 function runAgent(res, send, body) {
   return new Promise((resolve, reject) => {
-    const run = (engine === 'codex' ? codexRun : claudeRun)(body, MODES[body.mode] || MODES.ask);
+    const run = ENGINES[engine].run(body, MODES[body.mode] || MODES.ask);
     const child = spawn(cli.cmd, run.args, { cwd: root, env: cliEnv(), stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
     const id = crypto.randomBytes(6).toString('hex');
     running.set(id, child);
@@ -333,7 +345,7 @@ function runAgent(res, send, body) {
 function ask(req, res, body) {
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
   const send = (event, data) => { if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); };
-  if (!cli) { send('failure', { code: 'cli_missing', message: `${NAME[want]} not found.` }); return res.end(); }
+  if (!cli) { send('failure', { code: 'cli_missing', message: `${ENGINES[want].name} not found.` }); return res.end(); }
   if (body.mode === 'change') return changePlan(res, send, body);
   runAgent(res, send, body)
     .then((a) => send('answer', a), (e) => { if (e !== CLOSED) send('failure', { code: failCode(e.message), message: e.message }); })
@@ -406,7 +418,7 @@ function applyChange(data, request, lastTry) {
 }
 async function changePlan(res, send, body) {
   const request = String(body.question || '').slice(0, 4000);
-  if (!MODES.change) { send('failure', { code: 'cli_error', message: 'Only a blueprint can be changed from the map.' }); return res.end(); }
+  if (!MODES.change) { send('failure', { code: 'cli_error', message: G.meta?.blueprint ? `${ENGINES[engine].name} can't change a plan from the map.` : 'Only a blueprint can be changed from the map.' }); return res.end(); }
   if (changing) { send('failure', { code: 'busy', message: 'Another change to this plan is still being made. Try again when it’s done.' }); return res.end(); }
   changing = true;
   let session, errors = null;
@@ -539,8 +551,8 @@ server.on('listening', () => {
   for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => process.exit(0));
   console.log(`Floorplan: ${u}`);
   console.log(cli
-    ? `asking via ${NAME[engine]} ${version || ''} (${cli.path})${model ? `, model ${model}` : ''}`
-    : `${NAME[want]} not found: the map works, but asking questions needs it (${want === 'codex' ? 'https://developers.openai.com/codex' : 'https://docs.claude.com/en/docs/claude-code'}). Pass --${want} <path> if it is installed somewhere unusual.`);
+    ? `asking via ${ENGINES[engine].name} ${version || ''} (${cli.path})${model ? `, model ${model}` : ''}`
+    : `${ENGINES[want].name} not found: the map works, but asking questions needs it (${ENGINES[want].site}). Pass --${want} <path> if it is installed somewhere unusual.`);
   if (!has('no-open')) {
     const opener = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', u]] : process.platform === 'darwin' ? ['open', [u]] : ['xdg-open', [u]];
     try { spawn(opener[0], opener[1], { stdio: 'ignore', detached: true }).unref(); } catch {}
