@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **The map's server answers only to this computer's own addresses:** it refuses requests under any other host name, so a website that points its domain at 127.0.0.1 (DNS rebinding) can't load the map, read its token and ask questions about your code.
+
 ## 0.3.1 (2026-10-30)
 
 - **Asking on a map works again on Windows with the current Claude Code install:** the map's server found only the shell shim of an npm install and failed with `spawn ...\claude ENOENT`; it now finds the real `claude.exe` inside the package. Reported and fixed by @menachem-kurkus in #20 and #21.

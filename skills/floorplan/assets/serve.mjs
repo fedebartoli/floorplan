@@ -445,6 +445,9 @@ function undoChange() {
 
 // ---------- http ----------
 const server = http.createServer((req, res) => {
+  // only this machine's own names: a website that points its domain at 127.0.0.1 (DNS rebinding) would
+  // otherwise count as the same origin as the map, and could read its token from the page
+  if (![`127.0.0.1:${port}`, `localhost:${port}`].includes(String(req.headers.host || '').toLowerCase())) { res.writeHead(403); return res.end('unknown host'); }
   const url = new URL(req.url, `http://${req.headers.host}`);
   const sameOrigin = !req.headers.origin || req.headers.origin === `http://${req.headers.host}`;
   if (url.pathname.startsWith('/api/')) {
