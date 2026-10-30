@@ -16,6 +16,7 @@ Floorplan writes to exactly two places in your project: the `floorplan/` folder,
 | `serve.mjs` | Serves the map locally and answers questions through the Claude Code CLI or Codex | No |
 | `query.mjs` | Looks things up in the map from the command line; Claude and Codex use it too | No |
 | `artifact.html` | A copy for opening in the Claude app, only if you asked for one | No |
+| `<project>-map.html` | An exported copy to share, only if you exported one from Claude or Codex (the map's Export button downloads it instead) | No |
 | `.cache/` | The scan, the description worksheets, the last update's changes, the running server's address, and, for a blueprint, the last 20 versions of the plan that **Undo** goes back to | No. Safe to delete, though Undo then has nothing to go back to |
 | `.gitignore` | Keeps this whole folder out of git | No |
 
