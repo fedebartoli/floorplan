@@ -52,5 +52,5 @@ test('the skill has a name and description, and every file it points to exists',
 });
 
 test('CHECKSUMS.txt is for this version, so each release ships its fingerprints', () => {
-  assert.match(read('CHECKSUMS.txt'), new RegExp(`^# Floorplan ${plugin.version.replaceAll('.', '\.')}:`), 'run node tools/checksums.mjs when bumping the version');
+  assert.match(read('CHECKSUMS.txt'), new RegExp(`^# Floorplan ${plugin.version.replaceAll('.', '\\.')}:`), 'run node tools/checksums.mjs when bumping the version');
 });
