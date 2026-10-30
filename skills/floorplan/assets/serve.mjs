@@ -56,7 +56,10 @@ function resolveCli(candidates, npmEntry) {
       const cli = path.join(path.dirname(c), 'node_modules', ...npmEntry);
       if (fs.existsSync(cli)) return { cmd: process.execPath, args: [cli], path: c };
       const exe = c.replace(/\.(cmd|bat|ps1)$/i, '.exe');
-      if (fs.existsSync(exe)) return { cmd: exe, args: [], path: exe };
+      if (exe !== c && fs.existsSync(exe)) return { cmd: exe, args: [], path: exe };
+      // newer npm installs ship a real program inside the package (bin/claude.exe) and no JS entry point; the shim beside it can't be spawned
+      const pkgExe = path.join(path.dirname(c), 'node_modules', ...npmEntry.slice(0, 2), 'bin', path.basename(c).replace(/\.[^.]*$/, '') + '.exe');
+      if (fs.existsSync(pkgExe)) return { cmd: pkgExe, args: [], path: pkgExe };
       continue;
     }
     return { cmd: c, args: [], path: c };
