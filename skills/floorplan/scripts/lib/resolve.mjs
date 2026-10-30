@@ -78,7 +78,7 @@ export function createResolver(root, files) {
           : (spec.startsWith(pattern.slice(0, star)) && spec.endsWith(pattern.slice(star + 1)) ? spec.slice(star, spec.length - (pattern.length - star - 1)) : null);
         if (matched === null) continue;
         for (const t of targets) {
-          const hit = tryJsFile(P.join(cfg.baseDir, t.replace('*', matched)));
+          const hit = tryJsFile(P.join(cfg.baseDir, t.split('*').join(matched)));
           if (hit) return { file: hit };
         }
       }

@@ -279,7 +279,7 @@ function callableCalls(code, at) {
 /** Uses of a callable helper: `callFunction('approveItem', data)` → CALL /approveItem. */
 function callsVia(code, name, skipLine = 0) {
   const out = [];
-  const re = new RegExp(`(?<![\\w$.])${name.replace(/\$/g, '\\$')}\\s*(?:<[^;]{0,300}?>)?\\s*\\(\\s*(["'\`])([\\w-]+)\\1`, 'g');
+  const re = new RegExp(`(?<![\\w$.])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:<[^;]{0,300}?>)?\\s*\\(\\s*(["'\`])([\\w-]+)\\1`, 'g');
   const at = lineIndex(code);
   for (const m of code.matchAll(re)) {
     const line = at(m.index);

@@ -43,7 +43,7 @@ const DATA_START = '<script>window.FLOORPLAN = ';
 function exportMap(include, extraFlows = []) {
   const html = fs.readFileSync(path.join(here, 'index.html'), 'utf8');
   const a = html.indexOf(DATA_START), b = html.indexOf(';</script>', a);
-  if (a < 0 || b < 0) throw new Error('This map is too old to export. Ask Claude or Codex to update the floorplan first.');
+  if (a < 0 || b < 0) throw Object.assign(new Error('This map is too old to export. Ask Claude or Codex to update the floorplan first.'), { plain: true });
   const g = JSON.parse(html.slice(a + DATA_START.length, b));
   const on = EXPORT_PARTS.filter((p) => include.includes(p));
   const out = {
@@ -500,7 +500,10 @@ function undoChange() {
   if (!all.length) return { ok: false, error: 'Nothing to undo.' };
   const dir = path.join(historyDir, all[all.length - 1]);
   restore(dir);
-  try { skillScript('plan.mjs'); skillScript('build.mjs', '--no-claude-md'); } catch (e) { return { ok: false, error: String(e.message || e).slice(0, 500) }; }
+  try { skillScript('plan.mjs'); skillScript('build.mjs', '--no-claude-md'); } catch (e) {
+    console.error(`✗ Undo couldn't redraw the plan: ${e.message || e}`);
+    return { ok: false, error: 'Couldn’t redraw the previous plan. The details are in the map server’s output.' };
+  }
   fs.rmSync(dir, { recursive: true, force: true });
   return { ok: true, left: all.length - 1 };
 }
@@ -575,7 +578,11 @@ const server = http.createServer((req, res) => {
           const x = exportMap(Array.isArray(body.include) ? body.include.map(String) : EXPORT_DEFAULT, cleanFlows(body.flows));
           res.writeHead(200, { 'Content-Type': TYPES['.html'], 'Content-Disposition': `attachment; filename="${x.name}"`, 'Cache-Control': 'no-store' });
           res.end(x.html);
-        } catch (e) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: e.message })); }
+        } catch (e) {
+          console.error(`✗ Couldn't export the map: ${e.message}`);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.plain ? e.message : 'The map’s server couldn’t export it. The details are in its output.' }));
+        }
       });
       return;
     }
