@@ -676,7 +676,7 @@ export function buildHealth({ graph, scan, arch, root }) {
     const want = new Map(candidates.map((f) => [stemOf(f.p), f.p]));
     const mentioned = new Set();
     for (const f of scan.files) {
-      if (!['code', 'config', 'docs'].includes(f.category) || f.bytes > 524288) continue;
+      if (!['code', 'config', 'docs'].includes(f.category) || f.tooLarge) continue;
       let src;
       try { src = fs.readFileSync(path.join(root, f.path), 'utf8'); } catch { continue; }
       for (const tok of new Set(src.match(/[\w$-]+/g) || [])) { const p = want.get(tok); if (p && p !== f.path) mentioned.add(p); }
@@ -713,7 +713,7 @@ export function buildHealth({ graph, scan, arch, root }) {
       title: big.length === 1 ? 'One file is very large' : `${big.length} files are very large`,
       detail: `${big.length === 1 ? 'This file has' : 'These files each have'} over 1,000 lines${huge.length ? ` (the biggest has ${big[0].loc.toLocaleString('en-US')})` : ''}. AI assistants read and edit big files less reliably: they lose track of what's where and can break one part while fixing another. Splitting them into smaller files by job makes future changes safer.`,
       items: big.slice(0, 24).map((f) => 'f:' + f.p),
-      notes: Object.fromEntries(big.slice(0, 24).map((f) => ['f:' + f.p, `${f.loc.toLocaleString('en-US')} lines`])),
+      notes: Object.fromEntries(big.slice(0, 24).map((f) => ['f:' + f.p, `${f.loc.toLocaleString('en-US')} lines${f.tooLarge ? ': too big for Floorplan to read, so what it connects to and any secrets in it weren’t checked' : ''}`])),
       locations: big.map((f) => ({ file: f.p, line: 1 })),
       fix: [`Refactor plan: these files are very large:`, ...big.slice(0, 15).map((f) => `- ${f.p} (${f.loc.toLocaleString('en-US')} lines)`), ``, `Start with ${big[0].p}. Read it and propose how to split it into smaller files, each with one clear job (for example by feature or by type of work), keeping every public function name and behaviour the same. Show me the plan first. After I approve, move code in small steps, update the imports, and run the tests after each step. Don't change behaviour.`].join('\n'),
     });

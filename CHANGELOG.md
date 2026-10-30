@@ -6,6 +6,7 @@
 - **Fewer false Health alarms on FastAPI:** a check added where a router is included, like `app.include_router(admin.router, dependencies=[Depends(require_admin)])`, now protects every endpoint of that router, as `app.use('/admin', requireStaff, adminRouter)` already did on Express. A database session added there still doesn't count as a sign-in check. Fixed by @stevensiht in #15.
 - **FastAPI routers found by the name they're imported under:** a router imported under another name (`from app.routes import campaigns as campaign_routes`) gets its prefix and its checks, and a package that shares a router's name (`from app.platform import pricing` beside a `platform` router) is no longer mistaken for it. Fixed by @stevensiht in #15.
 - **No more false alarm for analytics and map tokens:** Health no longer calls Cloudflare Web Analytics' beacon token or a Mapbox public token (`pk.…`) a leaked secret. Both are public by design: the page has to send them for analytics or maps to work. Reported by @CplSyx in #23.
+- **Big files no longer vanish from the map:** files up to 2 MB are now read in full (up from 512 KB). A file over the limit still appears with its line count, the scan lists it, Health includes it among the very large files, and its card says its connections and secrets weren't checked. Reported by @Rasherb69 in #16.
 
 ## 0.3.0 (2026-10-29)
 

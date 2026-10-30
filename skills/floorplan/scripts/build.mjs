@@ -397,6 +397,7 @@ const graph = {
       p: f.path, n: owner.get(f.path), r: f.repo, l: f.lang || f.category, loc: f.loc,
       name: d?.name || f.name || fallbackFileName(f.path), d: d?.d || f.desc || f.doc || '', ...(d?.d || f.desc ? {} : { auto: true }),
       ...(f.doc ? { doc: f.doc } : {}),
+      ...(f.tooLarge ? { tooLarge: true } : {}),
       ...(d?.review ? { review: d.review } : {}),
       ...(f.h ? { h: f.h, sig: f.sig } : {}),
       ...(f.symbols ? { s: f.symbols.map((s) => [s.name, s.kind, s.line, s.default ? 1 : 0, s.doc || '']) } : {}),
