@@ -319,6 +319,11 @@ body.resizing #panel-resize::after { background: rgba(var(--ink), .4); }
 body.resizing, body.resizing * { cursor: ew-resize !important; user-select: none; }
 body.resizing #panel, body.resizing #ask, body.resizing #flowbar { transition: none; }
 body.exported #ask { display: none; }
+#madewith { position: absolute; left: calc((100% - var(--pw)) / 2); bottom: 20px; transform: translateX(-50%); z-index: 4; display: inline-flex; align-items: center; gap: 8px; padding: 8px 15px 8px 12px; border-radius: 999px; font-size: 12.5px; color: var(--text-3); text-decoration: none; white-space: nowrap; transition: left .45s var(--ease), color .15s var(--ease); }
+#madewith .mark { height: 13px; }
+#madewith b { color: var(--text); font-weight: 600; }
+#madewith:hover { color: var(--text); }
+@media (max-width: 700px) { #madewith .x { display: none; } }
 .xtag { font-size: 11.5px; font-weight: 500; color: var(--text-3); background: rgba(var(--ink), .06); border-radius: 999px; padding: 3px 9px; margin-left: 8px; white-space: nowrap; cursor: default; }
 body.no-panel #panel-resize { opacity: 0; pointer-events: none; }
 #panel::-webkit-scrollbar { width: 12px; } #panel::-webkit-scrollbar-thumb { background: rgba(var(--ink), .1); border-radius: 10px; border: 4px solid transparent; background-clip: padding-box; }
@@ -2027,6 +2032,12 @@ if (EXPORTED) {
   tag.textContent = isNaN(at) ? 'Exported copy' : `Exported ${at.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
   tag.title = 'A copy of this map to look around in. Asking questions needs Floorplan with Claude Code or Codex, in the codebase itself.';
   $('#proj-name').after(tag);
+  // whoever receives a copy can find where it came from
+  const made = document.createElement('a');
+  made.id = 'madewith'; made.className = 'glass';
+  made.href = 'https://github.com/haydenschmitty/floorplan'; made.target = '_blank'; made.rel = 'noopener';
+  made.innerHTML = `Made with <img class="mark" src="${$('.brand .mark').src}" alt=""><b>Floorplan</b><span class="x">· free and open source</span>`;
+  $('#stage').appendChild(made);
 }
 document.title = `${G.project.name} map`;
 $('#btn-up').onclick = up;
