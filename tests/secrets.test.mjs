@@ -36,3 +36,14 @@ test('placeholders, values read from the environment and public settings are not
   assert.deepEqual(secrets('DB_PASSWORD = os.environ["DB_PASSWORD"]\nAPI_KEY = os.getenv("API_KEY")\n'), []);
   assert.deepEqual(secrets('API_URL = "https://api.example.com/v1/orders"\n'), []);
 });
+
+test('tokens that are public by design are not flagged (#23)', () => {
+  const hex = [...Array(32)].map((_, i) => '01234567890abcdef'[(i * 7 + 3) % 16]).join('');
+  // Cloudflare Web Analytics' beacon token has to be in the page for analytics to work
+  const beacon = `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "${hex}"}'></script>`;
+  assert.deepEqual(secrets(beacon, 'site/index.html', 'html'), []);
+  // the same value under a secret-sounding name elsewhere is still flagged
+  assert.equal(secrets(`ACCESS_TOKEN = "${hex}"`).length, 1);
+  // a Mapbox public token
+  assert.deepEqual(secrets(`mapboxToken = "pk.${'eyJ1IjoiZXhhbXBsZSIsImEiOiJ'}${hex}.${hex.slice(0, 22)}"`, 'web/map.ts', 'typescript'), []);
+});
