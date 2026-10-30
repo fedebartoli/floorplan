@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 (2026-10-30)
 
 - **Export a copy to share:** the map's new **Export** button saves one HTML file anyone can open in a browser, with nothing to install. It has the whole map without the Ask bar, your folder path or git remotes. Flows and notes go in by default; recent work and the health check (or a blueprint's design review) only if you tick them. Ask Claude or Codex to "export the floorplan", or run `node floorplan/serve.mjs --export`.
 
