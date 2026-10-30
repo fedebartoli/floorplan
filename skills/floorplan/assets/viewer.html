@@ -1471,6 +1471,7 @@ function itemPanel(item, viaConnector) {
   } else if (i.type === 'file' || i.type === 'module') {
     const f = i.f, fid = 'f:' + f.p, url = editorUrl(f.p);
     if (f.note) html += `<div class="callout">${h(f.note)}</div>`;
+    if (f.tooLarge) html += `<div class="callout">Too big for Floorplan to read, so what it uses, its endpoints and any secrets in it weren’t checked. Ask Claude or Codex to update the floorplan with a bigger file limit to include it.</div>`;
     html += pathBox(f.p);
     if (url) actions.push(`<a class="btn soft" href="${url}">${iconI('open')}Open in editor</a>`);
     if (actions.length) html += `<div class="actions">${actions.join('')}</div>`;
