@@ -3,7 +3,8 @@
 // prompt to paste into Claude Code or Codex. Talks to the viewer only through window.Floorplan.
 (() => {
   const SC = window.Floorplan;
-  if (!SC) return;
+  // an exported copy without Health leaves the button out: an empty list would read as "all clear"
+  if (!SC || (SC.exported && !SC.graph.health)) return;
   const { h } = SC;
   const A = SC.agent || { name: 'Claude', app: 'Claude Code' };
   const issues = (SC.graph.health && SC.graph.health.issues) || [];
@@ -85,7 +86,7 @@
       ${locText(issue)}
       <div class="hc-a">
         ${onMap(issue) ? `<button class="btn soft" data-hc-show="${idx}">${SC.iconI('search')}Show on map</button>` : ''}
-        ${here(issue) ? `<button class="btn soft" data-hc-here="${idx}">${SC.iconI('spark')}Resolve on the map</button>` : `<button class="btn soft" data-hc-fix="${idx}">${SC.iconI('spark')}${FIX} with ${A.name}</button>`}
+        ${SC.exported ? '' : here(issue) ? `<button class="btn soft" data-hc-here="${idx}">${SC.iconI('spark')}Resolve on the map</button>` : `<button class="btn soft" data-hc-fix="${idx}">${SC.iconI('spark')}${FIX} with ${A.name}</button>`}
       </div>
     </div>`;
   const bindIssues = (el) => {
@@ -108,7 +109,7 @@
       const list = issues.map((i, idx) => [i, idx]).filter(([i]) => i.severity === sev);
       return list.length ? `<div class="sec"><h3>${h(SEV[sev].group)} <span class="c">${list.length}</span></h3>${list.map(([i, idx]) => issueHtml(i, idx)).join('')}</div>` : '';
     }).join('');
-    const foot = !issues.length ? '' : `<div class="sec" style="color:var(--text-3);font-size:12px;line-height:1.6">These are automatic hints. ${issues.some(here)
+    const foot = !issues.length ? '' : SC.exported ? `<div class="sec" style="color:var(--text-3);font-size:12px;line-height:1.6">These are automatic hints from when this copy was exported.</div>` : `<div class="sec" style="color:var(--text-3);font-size:12px;line-height:1.6">These are automatic hints. ${issues.some(here)
       ? `“Resolve on the map” puts a request in the Ask bar’s Change mode: finish or edit it, press Enter, and ${A.name} updates the plan and redraws the map. Undo puts it back.`
       : `“${FIX} with ${A.name}” gives you a request to paste into ${A.app}; ${PLAN ? 'it explains the choice and updates the plan once you decide' : 'it checks the code before changing anything'}.`}</div>`;
     return top + groups + foot;

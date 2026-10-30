@@ -100,7 +100,7 @@ Updates re-read only what changed, and an open map reloads itself. Everything ru
 </tr>
 </table>
 
-Plus guided **flows** you can request in plain words, a one-minute **Start here** tour, search, keyboard shortcuts, and right-click actions on every card.
+Plus guided **flows** you can request in plain words, a one-minute **Start here** tour, **Export** to send a copy to anyone as one HTML file, search, keyboard shortcuts, and right-click actions on every card.
 
 ### Also: blueprints, for apps you haven't built yet
 
@@ -205,6 +205,7 @@ You get a [blueprint](#also-blueprints-for-apps-you-havent-built-yet) of the pla
 | "Fix the important issues from the floorplan's Health check" | "If I change the users table, what breaks?" |
 | "Add a flow showing how a new user signs up" | "Which files handle login?" |
 | "Rewrite the floorplan for developers" | "What did we change for refunds?" |
+| "Export the floorplan so I can send it to the team" | |
 
 ## How it works
 

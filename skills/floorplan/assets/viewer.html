@@ -318,6 +318,8 @@ body.no-panel #panel { transform: translateX(24px) scale(.98); opacity: 0; point
 body.resizing #panel-resize::after { background: rgba(var(--ink), .4); }
 body.resizing, body.resizing * { cursor: ew-resize !important; user-select: none; }
 body.resizing #panel, body.resizing #ask, body.resizing #flowbar { transition: none; }
+body.exported #ask { display: none; }
+.xtag { font-size: 11.5px; font-weight: 500; color: var(--text-3); background: rgba(var(--ink), .06); border-radius: 999px; padding: 3px 9px; margin-left: 8px; white-space: nowrap; cursor: default; }
 body.no-panel #panel-resize { opacity: 0; pointer-events: none; }
 #panel::-webkit-scrollbar { width: 12px; } #panel::-webkit-scrollbar-thumb { background: rgba(var(--ink), .1); border-radius: 10px; border: 4px solid transparent; background-clip: padding-box; }
 #panel > * { animation: panelIn .4s var(--ease) both; }
@@ -536,6 +538,8 @@ const Cap = (t) => t[0].toUpperCase() + t.slice(1);
 if (!G) { document.body.innerHTML = '<p style="padding:2rem">No data. Run build.mjs.</p>'; return; }
 // a blueprint: planned from a PRD, so its files don't exist yet (no line counts, nothing to open in an editor)
 const PLAN = !!G.meta.blueprint;
+// an exported copy (serve.mjs --export, or the Export button): read-only, for people without Claude or Codex
+const EXPORTED = G.meta.exported || null;
 if (typeof ELK === 'undefined') { document.body.innerHTML = '<p style="padding:2rem">Could not load the ELK layout engine. Rebuild the map with build.mjs.</p>'; return; }
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -1111,7 +1115,7 @@ function itemMenu(id) {
     id.startsWith('x:') ? { label: `Go to ${i.name}`, icon: 'right', hint: '2×click', run: () => reveal(real) }
       : drillable(real) && state.container !== real ? { label: 'Open', icon: 'drill', hint: '2×click', run: () => open(real) } : null,
     state.container === 'q:answer' && !id.startsWith('x:') ? { label: 'Show on the map', icon: 'external', run: () => reveal(real) } : null,
-    { label: 'Ask about this', icon: 'spark', run: () => addAskContext(real) },
+    EXPORTED ? null : { label: 'Ask about this', icon: 'spark', run: () => addAskContext(real) },
     { label: 'Show details', icon: 'panel', run: () => { setPanel(true); if (id.startsWith('x:')) reveal(real); else select(id); } },
     '-',
     path ? { label: i.type === 'route' ? 'Copy endpoint' : 'Copy path', icon: 'copy', run: () => copy(path) } : null,
@@ -1123,7 +1127,7 @@ function edgeMenu(e) {
   const ep = (x) => x.startsWith('x:') ? connEntity(x) : x.startsWith('m:') ? 'f:' + x.slice(2) : x;
   return [
     { title: `${nameOf(e.a)} → ${nameOf(e.b)}` },
-    { label: 'Ask about this connection', icon: 'spark', run: () => { addAskContext(ep(e.a)); addAskContext(ep(e.b)); } },
+    EXPORTED ? null : { label: 'Ask about this connection', icon: 'spark', run: () => { addAskContext(ep(e.a)); addAskContext(ep(e.b)); } },
     { label: 'Show details', icon: 'panel', run: () => { setPanel(true); select({ edge: e.id }); } },
     '-',
     { label: `Go to ${nameOf(e.a)}`, icon: 'left', run: () => reveal(ep(e.a)) },
@@ -1137,7 +1141,7 @@ function canvasMenu() {
     state.container !== 'root' ? { label: 'Back to overview', icon: 'home', run: () => go('root') } : null,
     '-',
     { label: 'Search', icon: 'search', hint: '/', run: openPalette },
-    { label: 'Ask about this view', icon: 'spark', run: () => { if (state.container !== 'root' && state.container !== 'q:answer') addAskContext(state.container); askInput.focus(); } },
+    EXPORTED ? null : { label: 'Ask about this view', icon: 'spark', run: () => { if (state.container !== 'root' && state.container !== 'q:answer') addAskContext(state.container); askInput.focus(); } },
   ];
 }
 svg.addEventListener('contextmenu', (ev) => { ev.preventDefault(); hideTip(); openMenu(ev, canvasMenu()); });
@@ -1575,14 +1579,14 @@ $('#search-btn').onclick = openPalette;
 const fm = $('#flowmenu');
 fm.addEventListener('click', (ev) => ev.stopPropagation());
 function renderFlowMenu() {
-  fm.innerHTML = G.flows.map((f) => f.custom
+  fm.innerHTML = G.flows.map((f) => f.custom && !EXPORTED
     ? `<div class="r custom" data-flow="${h(f.id)}"><div class="rt"><b>${h(f.title)}<span class="yours">yours</span></b><span>${f.steps.length} steps${f.description ? ' · ' + h(f.description) : ''}</span></div><button class="del" data-del="${h(f.id)}" title="Delete flow">${iconI('x')}</button></div>`
     : `<div class="r" data-flow="${h(f.id)}"><b>${h(f.title)}</b><span>${f.steps.length} steps${f.description ? ' · ' + h(f.description) : ''}</span></div>`).join('')
-    + (G.flows.length ? '<div class="mi-sep"></div>' : '')
-    + `<div class="r new" data-new>${iconI('spark')}<b>Request a new flow…</b></div>`;
+    + (EXPORTED ? (G.flows.length ? '' : '<div class="r" style="cursor:default"><span>No flows in this copy.</span></div>') : (G.flows.length ? '<div class="mi-sep"></div>' : '')
+    + `<div class="r new" data-new>${iconI('spark')}<b>Request a new flow…</b></div>`);
   fm.querySelectorAll('[data-flow]').forEach((r) => r.onclick = () => { fm.classList.remove('open'); startFlow(r.dataset.flow); });
   fm.querySelectorAll('[data-del]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); deleteCustomFlow(b.dataset.del); });
-  fm.querySelector('[data-new]').onclick = showFlowForm;
+  const nf = fm.querySelector('[data-new]'); if (nf) nf.onclick = showFlowForm;
 }
 function showFlowForm() {
   fm.innerHTML = `<form class="ff"><label>Describe what to trace, and ${AGENT.name} builds a step-by-step flow through the map.</label>
@@ -2009,12 +2013,21 @@ async function submitAsk() {
 }
 $('#ask-form').addEventListener('submit', (ev) => { ev.preventDefault(); submitAsk(); });
 askSend.addEventListener('click', (ev) => { if (askState.busy) { ev.preventDefault(); cancelAsk(); } });
-detectEngine();
+if (!EXPORTED) detectEngine();
 renderFlowMenu();
-loadCustomFlows();
+if (!EXPORTED) loadCustomFlows();
 
 // ======================= boot =======================
 $('#proj-name').textContent = G.project.name;
+if (EXPORTED) {
+  document.body.classList.add('exported');
+  const at = new Date(EXPORTED.at);
+  const tag = document.createElement('span');
+  tag.className = 'xtag';
+  tag.textContent = isNaN(at) ? 'Exported copy' : `Exported ${at.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  tag.title = 'A copy of this map to look around in. Asking questions needs Floorplan with Claude Code or Codex, in the codebase itself.';
+  $('#proj-name').after(tag);
+}
 document.title = `${G.project.name} map`;
 $('#btn-up').onclick = up;
 // drag the panel's left edge to resize it; the width sticks between visits
@@ -2095,7 +2108,7 @@ const custom = { panel: null };
 function emit(event, data) { for (const fn of ext.listeners[event] || []) { try { fn(data); } catch (e) { console.error('floorplan extension', e); } } }
 window.Floorplan = Object.freeze({
   version: 1,
-  graph: G, query: Q, state, agent: AGENT,
+  graph: G, query: Q, state, agent: AGENT, exported: EXPORTED,
   // model helpers
   info, chain, children: (id) => visibleKids(id), parentOf: (id) => parentOf.get(id), exists: (id) => Q.exists(id),
   files, nodes, routes, colorOf, iconKey,

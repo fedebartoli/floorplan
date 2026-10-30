@@ -84,7 +84,8 @@ The tests use Node's built-in test runner, so there's nothing to install (`npm t
 | `blueprint-change.test.mjs` | changing a blueprint from the map: the agent's updated plan is checked, saved and highlighted, retried once when it fails the checks, and undone (stand-in CLI in `fixtures/fake-cli/`) |
 | `large-files.test.mjs` | files over the scan's size limit stay on the map with their line count, and the scan, Health and the map say they weren't read |
 | `sample-app.test.mjs` | a whole map of a two-repo shop: endpoints, cross-repo requests, Health, offline map, no secret values written, updates |
-| `serve.test.mjs` | the map's server: 127.0.0.1 only, token and same-origin checks, nothing served from outside its folder |
+| `serve.test.mjs` | the map's server: 127.0.0.1 only, its own host names only, token and same-origin checks, nothing served from outside its folder |
+| `export.test.mjs` | exporting a copy to share: what's left out by default, the extras when asked, the Export button's endpoint |
 | `ask.test.mjs` | asking through Claude Code or Codex: which one is used, read-only, follow-ups, sign-in errors (stand-in CLIs in `fixtures/fake-cli/`) |
 | `agents.test.mjs` | telling Claude Code from Codex, and what a map built by each records and writes |
 | `release.test.mjs` | the version agrees across both plugins' `plugin.json`, the README badge and the changelog |
@@ -100,7 +101,8 @@ Files in `skills/floorplan/assets/ui/` are inlined into every map, in name order
 - navigation (`go`, `open`, `reveal`, `showBoard`, `playFlow`);
 - `addHeaderButton` and `addPanelSection('overview' | 'item', fn)`;
 - `modal`, `toast`, `store`;
-- events (`on('ready' | 'render' | 'panel' | 'technical')`).
+- events (`on('ready' | 'render' | 'panel' | 'technical')`);
+- `exported`, set in an exported copy: leave out anything there that needs Claude, Codex or the map's server.
 
 `20-health.js` and `25-recent.js` are good examples.
 

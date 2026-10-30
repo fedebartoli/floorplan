@@ -135,6 +135,16 @@ The map has a floating Ask bar. The user types a question, and the agent answers
   Publishing uploads the map (paths, names, descriptions, structure), not the source code, to their private claude.ai account. Say that before you do it.
 - **Neither:** `floorplan/index.html` still opens directly in a browser. The Ask bar explains what's needed.
 
+### Sharing a copy
+
+When the user wants to send the map to someone (a teammate, a client, someone without Claude or Codex), export it. An export is the same single HTML file without the Ask bar, prompts for Claude or Codex, editor links, this machine's folder path or git remotes. The map's **Export** button does this from the browser; from here, run:
+
+```
+node floorplan/serve.mjs --export [<file>] [--include flows,notes,recent,health]
+```
+
+It writes `floorplan/<project>-map.html` unless given a file. `--include` defaults to `flows,notes` (flows and the tour, notes pinned to files); `recent` adds recent work and `health` adds the health check, or the design review on a blueprint. Leave health out unless the user asks for it, and if they do, say that it lists the endpoints anyone can use and where secrets sit in the code (never their values), so they should only send it to people they trust. Any export shows how the app fits together (every part, file and endpoint, with names and descriptions), but not the source code.
+
 ### What else the map gives them (automatic)
 
 - **Health.** A header button, with a count of important issues, opens a plain-language list of problems the scan found:
