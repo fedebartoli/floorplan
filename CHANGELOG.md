@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Is it safe to install?** A new page lists everything Floorplan does on your computer: no hooks, MCP servers, dependencies or downloads, its one outbound request, and every program it runs. A test enforces it on every change, and each release now includes `CHECKSUMS.txt`, so you can confirm your installed copy matches it (`node tools/checksums.mjs --check <folder>`).
+
 ## 0.4.1 (2026-10-30)
 
 - **Exported copies say where they came from:** a small "Made with Floorplan" link at the bottom of an exported map leads to the project, so whoever receives one can make their own.
