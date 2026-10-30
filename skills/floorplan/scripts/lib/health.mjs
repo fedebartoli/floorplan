@@ -536,8 +536,9 @@ export function buildHealth({ graph, scan, arch, root }) {
     if (!guardDefs.has(name)) guardDefs.set(name, []);
     guardDefs.get(name).push({ file, alias: true, repo });
   }
-  // a sign-in check applied where the route's router is mounted: app.use('/admin', requireStaff, adminRouter)
-  const mountGuard = new Map((scan.routes || []).filter((r) => r.mountMw?.some(isGuardName)).map((r) => [`${r.file}|${r.line}|${r.method}`, r.mountMw.find(isGuardName)]));
+  // a sign-in check applied where the route's router is mounted: app.use('/admin', requireStaff, adminRouter),
+  // or app.include_router(admin.router, dependencies=[Depends(require_admin)]) (a database session isn't one)
+  const mountGuard = new Map((scan.routes || []).filter((r) => r.mountMw?.some(isGuardDep)).map((r) => [`${r.file}|${r.line}|${r.method}`, r.mountMw.find(isGuardDep)]));
   const perRepo = new Map(); // repo -> { guarded, open: [], guardCounts }
   graph.routes.forEach((r, i) => {
     const fnd = routeFinding.get(`${r.f}|${r.l}|${r.m}`);
