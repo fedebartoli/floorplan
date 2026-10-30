@@ -63,7 +63,8 @@ test('with only Codex installed, questions run through Codex, read-only and out 
   assert.equal(call.args[0], 'exec');
   assert.equal(flag('--sandbox'), 'read-only');
   assert.ok(call.args.includes('--ephemeral'), 'nothing is saved to the Codex history');
-  assert.equal(path.resolve(flag('-C')), path.resolve(root));
+  // Node runs serve.mjs from its real path, and on macOS the temp folder /var/… is really /private/var/…
+  assert.equal(fs.realpathSync(flag('-C')), fs.realpathSync(root));
   assert.match(call.input, /How do refunds work\?/);
   assert.match(call.input, /node floorplan\/query\.mjs/);
 });
