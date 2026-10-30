@@ -1,5 +1,7 @@
 # Privacy and security
 
+For what the plugin itself can and can't do on your computer (no hooks, MCP servers, dependencies or downloads, and how to verify your copy), see [Is it safe to install?](is-it-safe.md).
+
 ## What runs where
 
 | Part | Where it runs | What it sends |

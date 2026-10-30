@@ -11,6 +11,10 @@ Helpful details:
 
 You'll get a reply within a few days. Once a fix is out, you'll be credited unless you'd rather not be.
 
+## What the plugin can do
+
+[Is it safe to install?](docs/is-it-safe.md) lists everything Floorplan does on your computer: its one outbound request, every program it runs, and what it never does. [`tests/supply-chain.test.mjs`](tests/supply-chain.test.mjs) enforces that on every push and pull request, and each release's `CHECKSUMS.txt` lets you confirm an installed copy matches it (`node tools/checksums.mjs --check <folder>`).
+
 ## Scope
 
 In scope:

@@ -50,3 +50,7 @@ test('the skill has a name and description, and every file it points to exists',
   for (const [, ref] of skill.matchAll(/\]\((references\/[\w.-]+\.md)/g)) assert.ok(fs.existsSync(path.join(SKILL, ref)), ref);
   for (const [, script] of skill.matchAll(/scripts\/(\w+\.mjs)/g)) assert.ok(fs.existsSync(path.join(SKILL, 'scripts', script)), script);
 });
+
+test('CHECKSUMS.txt is for this version, so each release ships its fingerprints', () => {
+  assert.match(read('CHECKSUMS.txt'), new RegExp(`^# Floorplan ${plugin.version.replaceAll('.', '\.')}:`), 'run node tools/checksums.mjs when bumping the version');
+});

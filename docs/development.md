@@ -39,6 +39,8 @@ skills/floorplan/
     logo.png, favicon.png
     vendor/        bundled layout engine (elkjs) and fonts, with their licenses
 tests/                 regression tests and the sample projects they map
+tools/checksums.mjs    writes CHECKSUMS.txt for a release, and checks an installed copy against it
+CHECKSUMS.txt          SHA-256 of every file the plugin runs from, as of the last release
 docs/                  these guides
 ```
 
@@ -88,7 +90,8 @@ The tests use Node's built-in test runner, so there's nothing to install (`npm t
 | `export.test.mjs` | exporting a copy to share: what's left out by default, the extras when asked, the Export button's endpoint |
 | `ask.test.mjs` | asking through Claude Code or Codex: which one is used, read-only, follow-ups, sign-in errors (stand-in CLIs in `fixtures/fake-cli/`) |
 | `agents.test.mjs` | telling Claude Code from Codex, and what a map built by each records and writes |
-| `release.test.mjs` | the version agrees across both plugins' `plugin.json`, the README badge and the changelog |
+| `release.test.mjs` | the version agrees across both plugins' `plugin.json`, the README badge, the changelog and `CHECKSUMS.txt` |
+| `supply-chain.test.mjs` | what the plugin can do stays what [Is it safe to install?](is-it-safe.md) says: no hooks, MCP servers or dependencies, one outbound request, a fixed list of programs and pre-approved scripts, no code loaded at run time, the vendored layout engine unchanged |
 
 Sample projects are written to a temp folder by `helpers.mjs` (`shopApp()`) or copied from `tests/fixtures/`. Anything secret-looking is assembled at runtime, so no real-looking key is ever committed.
 
@@ -157,13 +160,17 @@ An engine must be read-only in a way its CLI enforces, not only because the prom
    ```
 2. Bump `version` in `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`, and the version badge in `README.md`.
 3. Rename `## Unreleased` in `CHANGELOG.md` to `## X.Y.Z (YYYY-MM-DD)`.
-4. Commit as `Floorplan X.Y.Z: <one-line headline>` and push `main`.
-5. Tag and push the tag. This also checks that `plugin.json` and the marketplace entry agree:
+4. Write the release's fingerprints, after the version bump:
+   ```bash
+   node tools/checksums.mjs
+   ```
+5. Commit as `Floorplan X.Y.Z: <one-line headline>` and push `main`.
+6. Tag and push the tag. This also checks that `plugin.json` and the marketplace entry agree:
    ```bash
    claude plugin tag . -m "Floorplan %s" --push
    ```
-6. On GitHub, publish a release from the tag (`floorplan--vX.Y.Z`), titled `Floorplan X.Y.Z`, with that version's changelog section as its notes.
-7. Reply on every issue and pull request the release fixes: what changed, the version, and how to get it (`claude plugin update floorplan@floorplan`).
+7. On GitHub, publish a release from the tag (`floorplan--vX.Y.Z`), titled `Floorplan X.Y.Z`, with that version's changelog section as its notes.
+8. Reply on every issue and pull request the release fixes: what changed, the version, and how to get it (`claude plugin update floorplan@floorplan`).
 
 ### Issues and pull requests
 

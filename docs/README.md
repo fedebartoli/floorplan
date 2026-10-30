@@ -8,6 +8,7 @@
 | [How it works](how-it-works.md) | The pipeline from scan to map, how connections are found, how updates stay cheap, how blueprints are drawn and changed |
 | [What's in your project](project-files.md) | Every file Floorplan creates, which ones you can edit, and how it stays out of git |
 | [Privacy and security](privacy-and-security.md) | What runs where, what leaves your machine, and how secrets are handled |
+| [Is it safe to install?](is-it-safe.md) | Everything Floorplan does on your computer, how a test enforces it, and how to verify your installed copy |
 | [Troubleshooting](troubleshooting.md) | Common problems and how to fix them |
 | [Developing Floorplan](development.md) | Repo layout, testing a local copy, releasing a new version |
 

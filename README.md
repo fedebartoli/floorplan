@@ -236,7 +236,7 @@ A `floorplan/` folder holding the map. In Claude Code it also adds a short secti
 - The Health check never stores or shows secret values, only where they are.
 - No analytics or tracking. The map may ask once whether you'd like an email when Floorplan Cloud launches. Nothing is sent unless you sign up, and then only your email and "just me" or "with my team".
 
-More in [Privacy and security](docs/privacy-and-security.md).
+More in [Privacy and security](docs/privacy-and-security.md). Wondering whether a plugin is safe to install? [Is it safe to install?](docs/is-it-safe.md) lists everything Floorplan does on your computer, how a test checks that on every change, and how to verify your copy.
 
 ## Documentation
 
@@ -248,10 +248,17 @@ More in [Privacy and security](docs/privacy-and-security.md).
 | [How it works](docs/how-it-works.md) | The pipeline, connection matching, refreshes |
 | [What's in your project](docs/project-files.md) | Every file Floorplan creates, and how to edit it |
 | [Privacy and security](docs/privacy-and-security.md) | What runs where, and what leaves your machine |
+| [Is it safe to install?](docs/is-it-safe.md) | No hooks, MCP servers, dependencies or downloads; every program it runs; checking your installed copy |
 | [Troubleshooting](docs/troubleshooting.md) | Common problems and fixes |
 | [Developing Floorplan](docs/development.md) | Repo layout, local installs, releases |
 
 ## FAQ
+
+<details>
+<summary><b>Is it safe to install?</b></summary>
+
+Floorplan has no hooks, no MCP servers and no dependencies, downloads nothing, and never runs code from the internet. Its only outside request is the opt-in waitlist. A test checks all of that on every change, and every release lists a fingerprint of each file so you can confirm your installed copy is the real thing. Everything is in [Is it safe to install?](docs/is-it-safe.md).
+</details>
 
 <details>
 <summary><b>Does my code leave my computer?</b></summary>
