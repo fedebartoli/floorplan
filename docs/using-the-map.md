@@ -54,6 +54,11 @@ Drag the panel's left edge to resize it.
 ### Health
 A count of important issues, and a plain-language list of problems the scan found:
 - passwords and keys written into the code, or into a committed `.env` file;
+- secret keys in settings the browser gets, like an OpenAI key in a `VITE_` or `NEXT_PUBLIC_` variable;
+- Supabase tables with row-level security switched off, and database rules that let anyone change a table;
+- Firebase rules that let anyone read or change your data or files, including "test mode" rules and when they run out;
+- Stripe webhooks that act on payments without checking Stripe's signature, so anyone could fake one;
+- servers that let any website call them, flagged as worth fixing when login cookies go along too;
 - endpoints that let anyone change or read data without signing in;
 - files nothing uses;
 - files over about 1,000 lines, which AI struggles to edit safely.

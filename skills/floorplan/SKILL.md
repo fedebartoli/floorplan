@@ -157,6 +157,11 @@ It writes `floorplan/<project>-map.html` unless given a file. `--include` defaul
 
 - **Health.** A header button, with a count of important issues, opens a plain-language list of problems the scan found:
   - passwords and API keys written into the code or a committed `.env`;
+  - secret keys in variables the browser gets (`NEXT_PUBLIC_`, `VITE_` and the like);
+  - Supabase tables without row-level security, and policies that let anyone change a table (from the SQL migrations);
+  - Firebase rules (Firestore, Storage, Realtime Database) that let anyone in, including test mode and its expiry;
+  - Stripe webhooks that act on events without checking Stripe's signature;
+  - CORS that allows every website (worth fixing when credentials go along);
   - endpoints that let anyone change or read data without signing in (including a sign-in check placed above the route line);
   - files nothing uses;
   - files over ~1,000 lines, which AI struggles to edit safely.

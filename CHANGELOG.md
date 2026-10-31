@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0 (2026-10-31)
+
+- **Health catches the classic mistakes in AI-built apps.** Five new checks, each in plain words with a fix to paste:
+  - **Secret keys sent to the browser:** an OpenAI, Stripe or Supabase service-role key (and others) in a `NEXT_PUBLIC_`, `VITE_`, `REACT_APP_` or similar variable, which every visitor can read. Keys that are public by design, like Supabase's anon key or Stripe's publishable key, are left alone.
+  - **Supabase tables anyone can read and change:** tables whose row-level security is never switched on (or is switched off), worked out by replaying the migrations in order, so a table locked later or dropped doesn't count. Policies that let anyone add, change or delete rows are flagged too, as worth a look.
+  - **Firebase rules that let anyone in:** Firestore, Storage and Realtime Database rules open to anyone, including "test mode" rules, with the date they stop working (or stopped).
+  - **Stripe webhooks anyone could fake:** code that acts on events like `checkout.session.completed` without checking Stripe's signature, so anyone could send a fake "payment succeeded".
+  - **Servers that let any website call them (CORS):** a small note on its own, and worth fixing when login cookies are allowed along with it.
+- **No more false alarm on Supabase's `config.toml`:** values like `"env(S3_SECRET_KEY)"` read a setting from the environment, so they're no longer reported as a key written into the code.
+
 ## 0.5.0 (2026-10-31)
 
 - **Fits phones and tablets:** the top bar wraps instead of running off the screen, the details open as a sheet at the bottom of a phone (tap a box to see them), the long description under the title folds to a line with More / Less, and every control is at least 44 px to tap. Nothing changes with a mouse at 1000 px and wider. Requested in #18 and built by @menachem-kurkus in #19.

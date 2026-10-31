@@ -101,7 +101,7 @@
     const top = `<div class="sec">
         <div class="ph"><span class="ico" style="--c:${urgent ? SEV[count('high') ? 'high' : 'medium'].color : 'var(--ok)'}">${SC.icon('health')}</span><span class="kindlabel">${PLAN ? 'Design review' : 'Health check'}</span></div>
         <h2 class="pt">${h(headline())}</h2>
-        <p class="pd">${PLAN ? 'We checked the plan for parts anyone on the internet could use, decisions the PRD leaves open, and pieces nothing connects to. Settling these now is cheaper than after it’s built.' : 'We looked for passwords and keys left in the code, parts of your app anyone on the internet can use, leftover files and files too big to edit safely.'}</p>
+        <p class="pd">${PLAN ? 'We checked the plan for parts anyone on the internet could use, decisions the PRD leaves open, and pieces nothing connects to. Settling these now is cheaper than after it’s built.' : 'We looked for keys left in the code or sent to the browser, data and parts of your app anyone on the internet can reach (Supabase tables, Firebase rules, Stripe webhooks, endpoints), leftover files and files too big to edit safely. It’s a quick check, not a security audit.'}</p>
         ${issues.length ? breakdown() : `<div class="hc-calm">Nothing stood out. This is a quick automatic check, not a full ${PLAN ? 'design' : 'security'} review.</div>`}
         <div class="actions"><button class="btn soft" data-hc-back>${SC.iconI('left')}Back</button></div>
       </div>`;
