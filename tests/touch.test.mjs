@@ -33,6 +33,12 @@ test('a third finger is ignored, and the click that ends a drag is swallowed onc
   assert.match(html, /if \(ev\.pointerType === 'touch'\) \{\n    if \(fingers\.size >= 2\) return; \/\/ a third finger is ignored/);
 });
 
+test('a tap does not leave a hover tooltip over the details, and a tooltip stays on a narrow screen', () => {
+  assert.match(html, /\(ev\) => \{ touching = ev\.pointerType === 'touch'; \}/);
+  assert.match(html, /if \(!html \|\| touching \|\| drag\?\.moved/);
+  assert.match(html, /tip\.style\.left = Math\.max\(8, x\) \+ 'px'; tip\.style\.top = Math\.max\(8, y\) \+ 'px';/);
+});
+
 test('none of this changes a mouse: the glide is only cancelled for a finger, and a mouse drag keeps its original one-time click guard', () => {
   assert.match(html, /if \(ev\.pointerType === 'touch'\) swallowClick = true; else svg\.addEventListener\('click', \(e\) => e\.stopPropagation\(\), \{ capture: true, once: true \}\)/);
   assert.match(html, /svg\.addEventListener\('click', \(\) => select\(null\)\);/);

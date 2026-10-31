@@ -1141,7 +1141,10 @@ function drawColumns(g, view, res) {
 // ======================= tooltips =======================
 const tip = $('#tooltip');
 let tipTimer = null, lastPointer = null;
-function showTip(ev, html) { clearTimeout(tipTimer); if (!html || drag?.moved || !$('#ctxmenu').hidden) return; tip.innerHTML = html; tip.hidden = false; moveTip(ev); }
+// a tap also sends mouseenter, so remember whether the last pointer was a finger: hover tooltips are for a mouse
+let touching = false;
+['pointerdown', 'pointermove'].forEach((t) => window.addEventListener(t, (ev) => { touching = ev.pointerType === 'touch'; }, { capture: true, passive: true }));
+function showTip(ev, html) { clearTimeout(tipTimer); if (!html || touching || drag?.moved || !$('#ctxmenu').hidden) return; tip.innerHTML = html; tip.hidden = false; moveTip(ev); }
 /** Cards explain themselves after a short hover, so passing over them doesn't flicker tooltips. */
 function tipSoon(ev, make) { clearTimeout(tipTimer); lastPointer = ev; tipTimer = setTimeout(() => showTip(lastPointer, make()), 420); }
 function moveTip(ev) {
@@ -1151,7 +1154,7 @@ function moveTip(ev) {
   let x = ev.clientX - r.left + 18, y = ev.clientY - r.top + 18;
   if (x + tip.offsetWidth + 12 > r.width) x = ev.clientX - r.left - tip.offsetWidth - 14;
   if (y + tip.offsetHeight + 12 > r.height) y = ev.clientY - r.top - tip.offsetHeight - 14;
-  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px'; // flipped on a narrow screen, it still stays on it
 }
 function hideTip() { clearTimeout(tipTimer); tip.hidden = true; }
 function endpointsOf(e) {
