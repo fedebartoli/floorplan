@@ -1,11 +1,11 @@
-# Floorplan 0.4.2: SHA-256 of every file the plugin runs from.
+# Floorplan 0.4.3: SHA-256 of every file the plugin runs from.
 # Check an installed copy: clone this release, then run node tools/checksums.mjs --check <installed folder>.
 43adc6c187150c4b0a4841f0e7448381401be93ee65e2d212be4e7eeb67bb3e4  .agents/plugins/marketplace.json
 fdce61be9c420fd16b8cbbff629baa37e8d1096094b3e90bc5ecc0fe1ffc3a78  .claude-plugin/icon.png
 98cd297588a52fc7715d29ad10636f3224ee7a99bfbb94230315493dabc7147c  .claude-plugin/marketplace.json
-7f0d072b9585137e3a09caa6e304b909d4dcafc168e20a83fc168354b488a692  .claude-plugin/plugin.json
+14688306dab400f091771fb90cbcbe4db067421f2e7aec584efa653e1208fa37  .claude-plugin/plugin.json
 7bdb74d57875b25ca9dcd367f79f92b9089f5f4b873bffec898cc6c3f0a84a68  .codex-plugin/icon.png
-e6178c4eff5777fcfb6cc5c301cd261ab022b5ea82af35a1e89420830385d9d3  .codex-plugin/plugin.json
+ad4e805a75e94b1416654f7789a7d5069ff403a1c452eb1e054f4eadcbcc7036  .codex-plugin/plugin.json
 e1cdfc2a2f1ae41796c8eae54eed099f95d09d25f2ec521742d3ab7a8aba1337  package.json
 3e6508e7708904757024b8bebef744d53e96cc37e62c86c6793ab2b44436198a  skills/floorplan/SKILL.md
 4dde86cace299094c246604badb73b605a10f47e01a72cc6746680788a7e20f9  skills/floorplan/agents/openai.yaml

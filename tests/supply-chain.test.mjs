@@ -42,7 +42,8 @@ test('the plugin is only a skill: no hooks, MCP servers or commands that run on 
   // .claude/ is the maintainer's own local settings, ignored by git
   const all = allFiles(REPO).filter((f) => !f.startsWith('.claude/'));
   assert.deepEqual(all.filter((f) => /(^|\/)(hooks\.json|\.mcp\.json|\.lsp\.json)$/.test(f) || /(^|\/)hooks\//.test(f)), [], `no hooks or MCP/LSP servers. ${UPDATE}`);
-  assert.deepEqual(Object.keys(json('.claude-plugin/plugin.json')).sort(), ['author', 'description', 'homepage', 'keywords', 'license', 'name', 'repository', 'version'], `Claude Code manifest: nothing beyond the skill. ${UPDATE}`);
+  // documentationUrl, privacyPolicyUrl and supportUrl are only links, shown on the Claude plugin directory listing
+  assert.deepEqual(Object.keys(json('.claude-plugin/plugin.json')).sort(), ['author', 'description', 'documentationUrl', 'homepage', 'keywords', 'license', 'name', 'privacyPolicyUrl', 'repository', 'supportUrl', 'version'], `Claude Code manifest: nothing beyond the skill. ${UPDATE}`);
   assert.deepEqual(Object.keys(json('.codex-plugin/plugin.json')).sort(), ['author', 'description', 'homepage', 'interface', 'keywords', 'license', 'name', 'repository', 'requires_local_executor', 'skills', 'version'], `Codex manifest: nothing beyond the skill. ${UPDATE}`);
   assert.equal(json('.codex-plugin/plugin.json').skills, './skills/');
   // both marketplaces install from this repo itself, never from somewhere else

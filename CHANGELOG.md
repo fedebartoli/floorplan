@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3 (2026-10-31)
+
+- **Links for the Claude plugin directory:** the Claude Code manifest now points to the documentation, the privacy and security page, and GitHub issues for support, so a directory listing shows the right links. Nothing else changed.
+
 ## 0.4.2 (2026-10-30)
 
 - **Is it safe to install?** A new page lists everything Floorplan does on your computer: no hooks, MCP servers, dependencies or downloads, its one outbound request, and every program it runs. A test enforces it on every change, and each release now includes `CHECKSUMS.txt`, so you can confirm your installed copy matches it (`node tools/checksums.mjs --check <folder>`).
