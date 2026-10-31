@@ -60,10 +60,12 @@ test('nothing to install: no dependencies and no install scripts', () => {
 
 test('the only commands pre-approved are the skill’s own scripts, and that list is fixed', () => {
   const front = /^---\n([\s\S]*?)\n---/.exec(read(path.join(SKILL, 'SKILL.md')).replace(/\r\n/g, '\n'))[1];
-  assert.equal(/^allowed-tools:\s*(.*)$/m.exec(front)?.[1].trim(), 'Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)', `SKILL.md allowed-tools. ${UPDATE}`);
-  // every script there runs without a prompt while the skill is in use, so adding one is a deliberate change
+  // each script runs without a prompt while the skill is in use, so adding one is a deliberate change
+  const SCRIPTS = ['build.mjs', 'describe.mjs', 'open.mjs', 'plan.mjs', 'recent.mjs', 'refresh.mjs', 'scan.mjs', 'status.mjs'];
+  const granted = /^allowed-tools:\n((?: {2}- .*\n?)+)/m.exec(front + '\n')?.[1].trim().split('\n').map((l) => l.replace(/^\s*- /, '').trim());
+  assert.deepEqual(granted, SCRIPTS.map((s) => `Bash(node \${CLAUDE_SKILL_DIR}/scripts/${s} *)`), `SKILL.md allowed-tools: exactly the skill's own scripts. ${UPDATE}`);
   const scripts = fs.readdirSync(path.join(SKILL, 'scripts')).filter((n) => !fs.statSync(path.join(SKILL, 'scripts', n)).isDirectory()).sort();
-  assert.deepEqual(scripts, ['build.mjs', 'describe.mjs', 'open.mjs', 'plan.mjs', 'recent.mjs', 'refresh.mjs', 'scan.mjs', 'status.mjs'], `scripts/ list. ${UPDATE}`);
+  assert.deepEqual(scripts, SCRIPTS, `scripts/ list. ${UPDATE}`);
 });
 
 test('it reaches the internet in one place: the waitlist, only when someone signs up', () => {

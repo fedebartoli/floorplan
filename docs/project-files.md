@@ -1,6 +1,6 @@
 # What's in your project
 
-Floorplan writes to exactly two places in your project: the `floorplan/` folder, and (in Claude Code) a short section in `CLAUDE.local.md`. Neither is committed to git, and nothing else in your project is touched.
+Floorplan writes to exactly two places in your project: the `floorplan/` folder, and (in Claude Code, only if you say yes) a short section in `CLAUDE.local.md`. Neither is committed to git, and nothing else in your project is touched.
 
 ## The `floorplan/` folder
 
@@ -37,14 +37,14 @@ The full format is in [`skills/floorplan/references/schema.md`](../skills/floorp
 
 ## `CLAUDE.local.md`
 
-In Claude Code, Floorplan adds a short marked section here, telling future Claude Code sessions in your project that the map exists and how to look things up in it. `CLAUDE.local.md` is Claude Code's file for personal project notes, loaded at the start of every session like `CLAUDE.md`. Floorplan:
+In Claude Code, after the first map, Claude asks whether future sessions in your project should use it. Only if you say yes, Floorplan adds a short marked section here, telling future Claude Code sessions that the map exists and how to look things up in it. `CLAUDE.local.md` is Claude Code's file for personal project notes, loaded at the start of every session like `CLAUDE.md`. Floorplan:
 - creates the file if you don't have one;
-- only ever rewrites its own section, between `<!-- floorplan:start -->` and `<!-- floorplan:end -->`;
+- only ever rewrites its own section, between `<!-- floorplan:start -->` and `<!-- floorplan:end -->`, and keeps it current on each update;
 - adds the file to your clone's private ignore list, `.git/info/exclude`.
 
-To turn it off, put `<!-- floorplan:off -->` anywhere in `CLAUDE.local.md`.
+To remove it, delete the section. To keep it from coming back, put `<!-- floorplan:off -->` anywhere in `CLAUDE.local.md`. (Before 0.4.4, Floorplan added the section without asking; if you have it from then, it stays until you remove it.)
 
-A blueprint adds no section, since there's no code to look up yet. It's added once the map switches to the real code.
+A blueprint adds no section, since there's no code to look up yet. Claude offers it once the map switches to the real code.
 
 In Codex this file isn't touched. Codex has no personal, uncommitted notes file (`AGENTS.md` is shared with your team), so Floorplan doesn't add a note there.
 

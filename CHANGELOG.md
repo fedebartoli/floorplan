@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.4 (2026-10-31)
+
+- **The note for future sessions is now your choice:** in Claude Code, Floorplan no longer adds its section to `CLAUDE.local.md` on its own. After your first map, Claude asks whether future sessions in the project should use it, and adds the note only if you say yes. A note you already have is kept up to date; delete it to remove it.
+- **Pre-approved commands named one by one:** the skill now lists each of its eight scripts by name, instead of approving anything in its scripts folder.
+
 ## 0.4.3 (2026-10-31)
 
 - **Links for the Claude plugin directory:** the Claude Code manifest now points to the documentation, the privacy and security page, and GitHub issues for support, so a directory listing shows the right links. Nothing else changed.

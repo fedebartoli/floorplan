@@ -4,7 +4,8 @@
 // including from parent folders); the map itself isn't committed, so its pointer isn't either. The file
 // is added to the repo's local ignore list (.git/info/exclude), which leaves tracked files untouched.
 // The block sits between markers and is rewritten in place; the rest of the file is never touched.
-// Put <!-- floorplan:off --> in CLAUDE.local.md to opt out.
+// It's added only when the user asks for it (build.mjs --claude-md); a block that's already there is
+// kept current. Put <!-- floorplan:off --> in CLAUDE.local.md to opt out.
 import fs from 'node:fs';
 import path from 'node:path';
 import { git } from './common.mjs';
@@ -54,10 +55,12 @@ function excludeLocally(root) {
   return 'ignored locally via .git/info/exclude';
 }
 
-/** Adds or refreshes the block, and moves it out of a committed CLAUDE.md written by older versions. */
-export function writeClaudeMd(root, outDir) {
+/** Refreshes the block, or adds it when `add` (the user asked for it); moves it out of a committed CLAUDE.md written by older versions. */
+export function writeClaudeMd(root, outDir, { add = false } = {}) {
   const rel = path.relative(root, outDir).replace(/\\/g, '/');
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return 'skipped (map is outside the codebase)';
+  const had = ['CLAUDE.local.md', 'CLAUDE.md', path.join('.claude', 'CLAUDE.md')].some((f) => stripBlock(read(path.join(root, f)) ?? '') != null);
+  if (!add && !had) return 'not added (offer it to the user; add it with --claude-md)';
   const notes = [];
 
   // older versions wrote the block into CLAUDE.md, which is usually committed: take it back out

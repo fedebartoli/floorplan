@@ -114,4 +114,4 @@ It uses whichever made the map, and the other one if that isn't installed. Eithe
 
 In the Claude app, the map asks Claude through the app instead, with the same lookups but no access to your source.
 
-The same lookups help ordinary Claude Code sessions. The short section Floorplan adds to `CLAUDE.local.md` tells them to check the map (`query.mjs find`, `show`, `path`, `overview`) before searching the code from scratch.
+The same lookups help ordinary Claude Code sessions. If you say yes after your first map, the short section Floorplan adds to `CLAUDE.local.md` tells them to check the map (`query.mjs find`, `show`, `path`, `overview`) before searching the code from scratch.
