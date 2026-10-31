@@ -18,6 +18,14 @@ The map is a board of cards connected by lines. Each card is a part of your app:
 
 The details on cards simplify as you zoom out: descriptions drop away and titles get bigger, so the map stays readable from far away.
 
+### On a phone or tablet
+
+- **Drag** with one finger to pan, and **pinch** with two to zoom.
+- **Tap a card** to see its details in a sheet at the bottom. **Open** in the sheet goes inside the card. Tapping empty space, going in or up, or **Esc** puts the sheet away.
+- The top bar wraps onto two rows and its buttons show only their icons. On a phone the zoom buttons sit in the top row, and the description under the title folds to one line, with **More** to read the rest.
+
+Nothing changes with a mouse in a window 1000 px wide or wider. Phone and tablet support was built by [@menachem-kurkus](https://github.com/menachem-kurkus).
+
 ## Cards
 
 - **Title and description:** a plain-English name, and one line on what it does.
