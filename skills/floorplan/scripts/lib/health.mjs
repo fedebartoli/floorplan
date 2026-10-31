@@ -1,6 +1,7 @@
 // Health check: plain-language warnings about the codebase (secrets, endpoints anyone can call,
-// unused files, oversized files), written for people who built an app with AI and don't know its
-// insides. Precision beats recall: a false alarm costs this audience more than a missed one.
+// the usual Supabase / Firebase / Stripe / CORS mistakes, unused files, oversized files), written for
+// people who built an app with AI and don't know its insides. It's a check, not an audit. Precision
+// beats recall: a false alarm costs this audience more than a missed one.
 //
 // findIssues(src, file)  — called by scan.mjs for every code/config/docs file with its source.
 //                           Returns raw findings for that file, stored in scan.json files[].issues.
@@ -10,7 +11,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { git } from './common.mjs';
+import { git, compileGlob } from './common.mjs';
 
 const lineIndex = (src) => {
   const starts = [0];
@@ -95,6 +96,7 @@ function valueLooksReal(v, name) {
   if (/\s/.test(v) || PLACEHOLDER.test(v)) return false;
   if (/^(none|null|nil|undefined|true|false|string|number|text|required|optional|bearer|basic|secret|token|password|test|dev|development|local|admin)$/i.test(v)) return false;
   if (/^[A-Z][A-Z0-9_]+$/.test(v)) return false;                 // the NAME of an env var
+  if (/^env\([A-Za-z_][\w]*\)$/.test(v)) return false;           // Supabase config.toml reading one: "env(S3_SECRET_KEY)"
   if (/^[a-z_]+(\.[a-z_]+)+$/i.test(v)) return false;            // dotted identifier / key path
   if (/^(\.{0,2}\/|~\/|https?:\/\/|[a-z]:\\)/i.test(v)) return false; // paths and URLs
   if (/\.(json|pem|key|txt|ya?ml|env|crt|p12)$/i.test(v)) return false; // a file name, not the key
@@ -368,12 +370,145 @@ function pyAliasGuards(files, findings) {
   return out;
 }
 
+// ---------- 3. the usual mistakes in apps built on Supabase, Firebase, Stripe, Next.js and Vite ----------
+
+// Frontend build tools copy variables with these prefixes into the code every visitor downloads.
+// (A bare PUBLIC_ prefix only means that to SvelteKit and Astro, so it counts only where they read it.)
+const PUBLIC_PREFIX = /^(NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|NUXT_PUBLIC|GATSBY|PUBLIC)_/;
+const CLIENT_ONLY_PREFIX = /^(VITE|REACT_APP|EXPO_PUBLIC|GATSBY|PUBLIC)_/; // these exist only in browser code
+// After the prefix: names that hold something private…
+const PRIVATE_NAME = /(^|_)(SECRETS?|SERVICE_ROLE|SERVICE_KEY|PRIVATE|PASSWORD|PASSWD|PWD|DATABASE_URL|DB_URL|CONNECTION_STRING|ADMIN_KEY|ADMIN_TOKEN|AUTH_TOKEN|JWT_SECRET)(_|$)/;
+// …or a key or token for a service that charges you or acts as you (AI, email, messaging, code hosting)
+const PRIVATE_SERVICE = /(^|_)(OPENAI|ANTHROPIC|CLAUDE|GEMINI|GROQ|GROK|XAI|MISTRAL|REPLICATE|ELEVEN_?LABS|SENDGRID|RESEND|POSTMARK|MAILGUN|BREVO|TWILIO|OPENROUTER|DEEPSEEK|PERPLEXITY|COHERE|TOGETHER|FIREWORKS|HUGGING_?FACE|HF|STABILITY|FAL|ASSEMBLY_?AI|DEEPGRAM|PINECONE|SERPAPI|TAVILY|FIRECRAWL|AIRTABLE|NOTION|GITHUB|SLACK|DISCORD|TELEGRAM|STRIPE)(_|$)/;
+const KEYISH = /(^|_)(KEY|API_?KEY|TOKEN|SECRET)$/;
+// Keys that are public by design: Supabase's anon key, Stripe's publishable key, reCAPTCHA site keys, IDs
+const PUBLIC_BY_DESIGN = /(^|_)(PUBLISHABLE|ANON|PK|PUBLIC|SITE|CLIENT_ID|APP_ID|PROJECT_ID|MEASUREMENT_ID)(_|$)/;
+const SERVICE_LABEL = { OPENAI: 'OpenAI', ANTHROPIC: 'Anthropic', CLAUDE: 'Anthropic', GEMINI: 'Google Gemini', GROQ: 'Groq', GROK: 'xAI', XAI: 'xAI', ELEVENLABS: 'ElevenLabs', ELEVEN_LABS: 'ElevenLabs', SENDGRID: 'SendGrid', OPENROUTER: 'OpenRouter', DEEPSEEK: 'DeepSeek', HF: 'Hugging Face', HUGGINGFACE: 'Hugging Face', HUGGING_FACE: 'Hugging Face', ASSEMBLYAI: 'AssemblyAI', ASSEMBLY_AI: 'AssemblyAI', SERPAPI: 'SerpApi', GITHUB: 'GitHub' };
+
+/** For a variable like VITE_OPENAI_API_KEY: the service it unlocks ('OpenAI', or '' for a generic secret), or null when it's fine to be public. */
+export function leakyPublicVar(name) {
+  const m = PUBLIC_PREFIX.exec(name);
+  if (!m) return null;
+  const rest = name.slice(m[0].length);
+  if (PUBLIC_BY_DESIGN.test(rest)) return null;
+  const svc = PRIVATE_SERVICE.exec(rest)?.[2];
+  if (svc && KEYISH.test(rest)) return SERVICE_LABEL[svc] || svc.charAt(0) + svc.slice(1).toLowerCase();
+  if (PRIVATE_NAME.test(rest)) return /SERVICE_ROLE|SERVICE_KEY/.test(rest) ? 'Supabase' : '';
+  return null;
+}
+
+function findPublicEnv(src, f, out) {
+  const at = lineIndex(src);
+  const seen = new Set();
+  const add = (name, idx) => { if (leakyPublicVar(name) === null || seen.has(name)) return; seen.add(name); out.push({ k: 'public-env', name, line: at(idx) }); };
+  for (const m of src.matchAll(/\b(process\.env\.|process\.env\[\s*['"]|import\.meta\.env\.)([A-Z][A-Z0-9_]*)/g)) {
+    if (/^PUBLIC_/.test(m[2]) && m[1].startsWith('process')) continue; // PUBLIC_ means nothing to Node
+    add(m[2], m.index);
+  }
+  for (const m of src.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]\$env\/(?:static|dynamic)\/public['"]/g)) for (const n of m[1].match(/[A-Z][A-Z0-9_]*/g) || []) add(n, m.index);
+}
+
+// Stripe: code that acts on payment events. Without checking Stripe's signature first, anyone can send
+// a fake "payment succeeded" event to the webhook address.
+const STRIPE_EVENT = /(?:\bcase\s*|[!=]==?\s*)["'](checkout\.session\.(?:completed|async_payment_succeeded)|payment_intent\.succeeded|invoice\.(?:paid|payment_succeeded|payment_failed)|customer\.subscription\.(?:created|updated|deleted)|charge\.(?:succeeded|refunded))["']/g;
+const STRIPE_VERIFIED = /constructEvent(?:Async)?\s*\(|construct_event\s*\(|verifyHeader|verify_header|events\.retrieve\s*\(|Event\.retrieve\s*\(/;
+
+function findStripeWebhook(src, f, out) {
+  if (!/stripe/i.test(src) || STRIPE_VERIFIED.test(src)) return;
+  const hits = [...src.matchAll(STRIPE_EVENT)];
+  if (!hits.length) return;
+  out.push({ k: 'stripe-unsigned', line: lineIndex(src)(hits[0].index), events: [...new Set(hits.map((m) => m[1]))].slice(0, 4) });
+}
+
+// CORS: a server that tells browsers any website may call it. Harmless for a public API without login
+// cookies; with them, any site a signed-in visitor opens could act as them.
+function findCors(src, f, out) {
+  const at = lineIndex(src);
+  const add = (idx, how, credentials) => out.push({ k: 'cors-any', line: at(idx), how, credentials });
+  if (['typescript', 'javascript'].includes(f.lang)) {
+    if (/require\(\s*['"]cors['"]\s*\)|from\s+['"]cors['"]/.test(src)) {
+      for (const m of src.matchAll(/\bcors\(\s*\)/g)) add(m.index, 'cors()', false);
+      for (const m of src.matchAll(/\bcors\(\s*\{([^}]*)\}/g)) {
+        const origin = /\borigin\s*:\s*(?:(['"`])\*\1|(true)\b)/.exec(m[1]);
+        // '*' with credentials is refused by browsers; origin: true echoes whichever site asks
+        if (origin) add(m.index, origin[2] ? 'cors({ origin: true })' : "cors({ origin: '*' })", !!origin[2] && /\bcredentials\s*:\s*true/.test(m[1]));
+      }
+    }
+    const credHeader = /['"]Access-Control-Allow-Credentials['"]\s*[,:]\s*['"`]?true/i.test(src);
+    for (const m of src.matchAll(/['"]Access-Control-Allow-Origin['"]\s*[,:]\s*(?:(['"`])\*\1|(req(?:uest)?\.headers(?:\.origin\b|\[\s*['"]origin['"]\s*\]|\.get\(\s*['"]origin['"]\s*\))))/gi)) {
+      add(m.index, m[2] ? 'Access-Control-Allow-Origin set to the caller’s origin' : 'Access-Control-Allow-Origin: *', !!m[2] && credHeader);
+    }
+  } else if (f.lang === 'python') {
+    for (const m of src.matchAll(/CORSMiddleware\s*,([\s\S]{0,800}?)\)\s*$/gm)) {
+      if (/allow_origins\s*=\s*\[\s*(['"])\*\1\s*\]|allow_origin_regex\s*=\s*r?(['"])\.\*\2/.test(m[1])) add(m.index, 'CORSMiddleware with allow_origins=["*"]', /allow_credentials\s*=\s*True/.test(m[1]));
+    }
+    for (const m of src.matchAll(/\bCORS\(\s*\w+\s*(?:\)|,([^)]*)\))/g)) {
+      const opts = m[1] || '';
+      if (/\borigins["']?\s*[:=]\s*(?!(['"])\*\1)/.test(opts)) continue; // a list of allowed sites (origins=… or "origins": …)
+      add(m.index, 'CORS(app) with every origin allowed', /supports_credentials\s*=\s*True/.test(opts));
+    }
+    const all = /^\s*CORS_(?:ALLOW_ALL_ORIGINS|ORIGIN_ALLOW_ALL)\s*=\s*True\b/m.exec(src);
+    if (all) add(all.index, 'CORS_ALLOW_ALL_ORIGINS = True', /^\s*CORS_ALLOW_CREDENTIALS\s*=\s*True\b/m.test(src));
+  }
+}
+
+// Supabase / Postgres migrations: tables, row-level security switched on or off, tables dropped or
+// renamed, and security rules that let anyone change a table. build.mjs replays them in file order.
+const SQL_ID = String.raw`(?:"[^"]+"|[A-Za-z_][\w$]*)`;
+const SQL_NAME = String.raw`(?:${SQL_ID}\s*\.\s*)?${SQL_ID}`;
+const sqlName = (raw) => {
+  const parts = raw.split(/\s*\.\s*(?=(?:"[^"]*"|[^"])*$)/).map((p) => p.trim().replace(/^"|"$/g, '').toLowerCase());
+  return parts.length > 1 ? `${parts[0]}.${parts[1]}` : `public.${parts[0]}`;
+};
+
+function findSql(src, f, out) {
+  // blank out comments, keeping line breaks so line numbers stay right
+  const s = src.replace(/--[^\n]*/g, (m) => ' '.repeat(m.length)).replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+  const at = lineIndex(s);
+  const found = [];
+  for (const m of s.matchAll(new RegExp(String.raw`\bcreate\s+(?:(temp|temporary)\s+|unlogged\s+)?table\s+(?:if\s+not\s+exists\s+)?(${SQL_NAME})`, 'gi'))) {
+    if (!m[1]) found.push({ i: m.index, k: 'sql-table', table: sqlName(m[2]) });
+  }
+  for (const m of s.matchAll(new RegExp(String.raw`\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(${SQL_NAME})\s+(enable|disable|force|no\s+force)\s+row\s+level\s+security`, 'gi'))) {
+    found.push({ i: m.index, k: 'sql-rls', table: sqlName(m[1]), on: !/^(disable|no)/i.test(m[2]) });
+  }
+  for (const m of s.matchAll(new RegExp(String.raw`\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(${SQL_NAME})\s+rename\s+to\s+(${SQL_ID})`, 'gi'))) {
+    const from = sqlName(m[1]);
+    found.push({ i: m.index, k: 'sql-rename', table: from, to: `${from.split('.')[0]}.${m[2].replace(/^"|"$/g, '').toLowerCase()}` });
+  }
+  for (const m of s.matchAll(new RegExp(String.raw`\bdrop\s+table\s+(?:if\s+exists\s+)?(${SQL_NAME}(?:\s*,\s*${SQL_NAME})*)`, 'gi'))) {
+    for (const t of m[1].split(/\s*,\s*/)) found.push({ i: m.index, k: 'sql-drop', table: sqlName(t) });
+  }
+  // a permissive rule that lets signed-out visitors add, change or delete rows: `using (true)` / `with check (true)`
+  for (const m of s.matchAll(new RegExp(String.raw`\bcreate\s+policy\s+(${SQL_ID})\s+on\s+(${SQL_NAME})([^;]*)`, 'gi'))) {
+    const body = m[3];
+    if (/\bas\s+restrictive\b/i.test(body)) continue;
+    const cmd = (/\bfor\s+(all|select|insert|update|delete)\b/i.exec(body)?.[1] || 'all').toLowerCase();
+    if (cmd === 'select') continue;
+    const to = /\bto\s+([\w\s,"]+?)(?=\s+(?:using|with)\b|\s*$)/i.exec(body)?.[1];
+    const roles = to ? to.split(/\s*,\s*/).map((r) => r.replace(/"/g, '').trim().toLowerCase()) : ['public'];
+    if (!roles.some((r) => r === 'anon' || r === 'public')) continue;
+    const yes = (clause) => new RegExp(String.raw`\b${clause}\s*\(\s*\(?\s*true\s*\)?\s*\)`, 'i').test(body);
+    const open = cmd === 'insert' ? yes('with\\s+check') : cmd === 'all' ? yes('using') || yes('with\\s+check') : yes('using');
+    if (open) found.push({ i: m.index, k: 'sql-open-policy', table: sqlName(m[2]), policy: m[1].replace(/^"|"$/g, ''), cmd, signedOut: roles.includes('anon') || !to });
+  }
+  for (const x of found.sort((a, b) => a.i - b.i)) { const { i, ...rest } = x; out.push({ ...rest, line: at(i) }); }
+}
+
+const USES_SUPABASE = /@supabase\/(?:supabase-js|ssr|auth-helpers[\w-]*)|from\s+supabase\s+import|^\s*import\s+supabase\b/m;
+
 // ---------- per-file entry point ----------
 
 export function findIssues(src, f) {
   const out = [];
   findSecrets(src, f, out);
   if (f.category !== 'code') return out;
+  if (f.lang === 'sql') findSql(src, f, out);
+  if (!TEST_FILE.test(f.path) && !EXAMPLE_FILE.test(f.path)) {
+    if (['typescript', 'javascript', 'vue', 'svelte', 'astro'].includes(f.lang)) findPublicEnv(src, f, out);
+    if (['typescript', 'javascript', 'python'].includes(f.lang)) { findStripeWebhook(src, f, out); findCors(src, f, out); }
+  }
+  if (['typescript', 'javascript', 'python'].includes(f.lang) && USES_SUPABASE.test(src)) out.push({ k: 'uses-supabase' });
   if (f.lang === 'python') pyRoutes(src, f, out);
   else if (['typescript', 'javascript'].includes(f.lang)) jsRoutes(src, f, out);
   // run directly or registered by name (so "nothing imports it" doesn't mean unused)
@@ -410,7 +545,10 @@ export function buildHealth({ graph, scan, arch, root }) {
   const isFrontend = (p) => { const f = fileByPath.get(p); return !!f && kinds(f.n).includes('ui'); };
   const nameOf = (p) => fileByPath.get(p)?.name || p.split('/').pop();
   const label = (id) => nodeById.get(id)?.label || id;
-  // Files outside the map (config, .env) point at the module that owns their folder instead.
+  // Files outside the map (config, .env, Firebase rules) point at the module that owns their folder, or
+  // failing that the most specific part of the map whose paths name them.
+  const archGlobs = (arch?.nodes || []).filter((n) => n?.id && nodeById.has(n.id) && Array.isArray(n.paths)).flatMap((n) => n.paths.map((p) => ({ id: n.id, g: compileGlob(p) })));
+  const globOwner = (p) => archGlobs.filter((x) => x.g.test(p)).sort((a, b) => b.g.specificity - a.g.specificity)[0]?.id;
   const dirOwner = new Map();
   for (const f of graph.files) { let d = f.p; while (d.includes('/')) { d = d.slice(0, d.lastIndexOf('/')); if (!dirOwner.has(d)) dirOwner.set(d, new Map()); const m = dirOwner.get(d); m.set(f.n, (m.get(f.n) || 0) + 1); } }
   const itemFor = (p) => {
@@ -422,7 +560,8 @@ export function buildHealth({ graph, scan, arch, root }) {
       const top = m && [...m.entries()].filter(([n]) => n !== 'unassigned').sort((a, b) => b[1] - a[1])[0];
       if (top) return 'n:' + top[0];
     }
-    return null;
+    const owner = globOwner(p);
+    return owner ? 'n:' + owner : null;
   };
   const findings = (p) => scanByPath.get(p)?.issues || [];
 
@@ -526,6 +665,256 @@ export function buildHealth({ graph, scan, arch, root }) {
     });
   }
 
+  // ---------- secret keys in variables the browser gets (NEXT_PUBLIC_, VITE_ …) ----------
+  const live = (p) => !TEST_FILE.test(p) && !EXAMPLE_FILE.test(p);
+  const publicVars = new Map(); // name -> { svc, refs: [{file, line}], defs: [{file, line}] }
+  const publicVar = (name) => { if (!publicVars.has(name)) publicVars.set(name, { name, svc: leakyPublicVar(name), refs: [], defs: [] }); return publicVars.get(name); };
+  for (const f of scan.files) if (live(f.path)) for (const x of findings(f.path)) if (x.k === 'public-env') publicVar(x.name).refs.push({ file: f.path, line: x.line });
+  for (const f of scan.files) {
+    const base = f.path.split('/').pop();
+    if (!/^\.env(\.[\w.-]+)?$/i.test(base) || /example|sample|template|dist|schema/i.test(base) || !live(f.path)) continue;
+    let src = '';
+    try { src = readHead(path.join(root, f.path), 262144); } catch { continue; }
+    src.split('\n').forEach((t, i) => {
+      const m = /^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=\s*["']?([^"'#\s]*)/.exec(t);
+      if (m && m[2] && !PLACEHOLDER.test(m[2]) && !/^\$/.test(m[2]) && leakyPublicVar(m[1]) !== null) publicVar(m[1]).defs.push({ file: f.path, line: i + 1 });
+    });
+  }
+  if (publicVars.size) {
+    const vars = [...publicVars.values()];
+    const browserSide = (p) => isFrontend(p) || /\.(jsx|tsx|vue|svelte|astro)$/.test(p);
+    const sev = vars.some((v) => CLIENT_ONLY_PREFIX.test(v.name) || v.refs.some((r) => browserSide(r.file))) ? 'high' : 'medium';
+    const svcs = [...new Set(vars.map((v) => v.svc).filter(Boolean))];
+    const locations = vars.flatMap((v) => [...v.defs, ...v.refs]);
+    const items = [], notes = {};
+    for (const v of vars) for (const loc of [...v.refs, ...v.defs]) {
+      const it = itemFor(loc.file);
+      if (!it) continue;
+      if (!items.includes(it)) items.push(it);
+      const note = `line ${loc.line}: ${v.name}`;
+      if (!(notes[it] || '').includes(note)) notes[it] = (notes[it] ? notes[it] + ' · ' : '') + note;
+    }
+    const names = vars.map((v) => v.name);
+    issues.push({
+      id: 'public-env', kind: 'public-env-secret', severity: sev,
+      title: vars.length === 1 ? `${names[0]} is sent to every visitor’s browser` : `${vars.length} secret keys are sent to every visitor’s browser`,
+      detail: `Settings whose names start with NEXT_PUBLIC_, VITE_ and the like are copied into the code your site sends to every visitor, where anyone can read them in their browser’s developer tools. ${vars.length === 1 ? `${names[0]} looks like a secret key` : `${names.slice(0, 4).join(', ')}${vars.length > 4 ? '…' : ''} look like secret keys`}${svcs.length ? ` (for ${svcs.slice(0, 4).join(', ')})` : ''}, so anyone could use ${vars.length === 1 ? 'it' : 'them'} as you: run up your bill, send messages as you, or reach your data.${sev === 'medium' ? ' Right now only server code seems to read it, so it may not have reached a browser yet, but the name invites that.' : ''}`,
+      items, notes, locations,
+      fix: [
+        `Security fix: secret keys in public environment variables (the browser gets every variable with these prefixes). Do not print, echo or repeat any key value.`,
+        ``,
+        ...vars.map((v) => `- ${v.name}${v.svc ? ` (${v.svc})` : ''}: ${[...v.defs.map((d) => `set in ${d.file}:${d.line}`), ...v.refs.map((r) => `used in ${r.file}:${r.line}`)].slice(0, 6).join(', ')}`),
+        ``,
+        `For each one:`,
+        `1. Rename it without the public prefix (for example OPENAI_API_KEY instead of VITE_OPENAI_API_KEY) in the .env files, .env.example and the hosting settings.`,
+        `2. Move every place that uses it into server-side code (a Next.js route handler or server action, a Supabase Edge Function, a serverless function or the existing backend) and have the frontend call that instead, so the key never reaches the browser.`,
+        vars.some((v) => v.svc === 'Supabase') ? `3. For the Supabase service-role key: browser code should use the anon key and rely on row-level security; only server code may use the service-role key.` : `3. Keep the frontend working the same way, and run the app to check.`,
+        ``,
+        `Then give me a checklist (names only, no values) of the keys to rotate in each service's dashboard: anyone who loaded the site may have copied them.`,
+      ].join('\n'),
+    });
+  }
+
+  // ---------- Supabase tables anyone can read and change ----------
+  const usesSupabase = scan.files.some((f) => /(^|\/)supabase\/(migrations\/|config\.toml$|functions\/)/.test(f.path) || findings(f.path).some((x) => x.k === 'uses-supabase'));
+  if (usesSupabase) {
+    const byRepo = new Map(); // repo -> [file, …] in path order (migrations are named by timestamp)
+    for (const f of scan.files) if (f.lang === 'sql' && live(f.path) && findings(f.path).some((x) => x.k.startsWith('sql-'))) { const k = f.repo ?? ''; if (!byRepo.has(k)) byRepo.set(k, []); byRepo.get(k).push(f.path); }
+    for (const [repo, sqlFiles] of byRepo) {
+      const tables = new Map(); // table -> { file, line, rls, off }
+      const policies = [];
+      for (const p of sqlFiles.sort()) for (const x of findings(p)) {
+        const t = tables.get(x.table);
+        if (x.k === 'sql-table' && !t) tables.set(x.table, { file: p, line: x.line, rls: null });
+        else if (x.k === 'sql-rls' && t) { t.rls = x.on; t.off = x.on ? null : { file: p, line: x.line }; }
+        else if (x.k === 'sql-rename' && t) { tables.delete(x.table); tables.set(x.to, t); for (const pol of policies) if (pol.table === x.table) pol.table = x.to; }
+        else if (x.k === 'sql-drop') tables.delete(x.table);
+        else if (x.k === 'sql-open-policy') policies.push({ ...x, file: p });
+      }
+      const short = (t) => t.replace(/^public\./, '');
+      const open = [...tables.entries()].filter(([name, t]) => name.startsWith('public.') && t.rls !== true);
+      if (open.length) {
+        const items = [], notes = {};
+        for (const [name, t] of open) {
+          const it = itemFor(t.file);
+          if (!it) continue;
+          if (!items.includes(it)) items.push(it);
+          notes[it] = (notes[it] ? notes[it] + ' · ' : '') + `line ${t.line}: ${short(name)} (row-level security ${t.off ? 'switched off' : 'never switched on'})`;
+        }
+        const list = open.map(([name]) => short(name));
+        issues.push({
+          id: 'rls:' + repo, kind: 'database-rules', severity: 'high',
+          title: open.length === 1 ? `Anyone can read and change your ${list[0]} table` : `Anyone can read and change ${open.length} of your database tables`,
+          detail: `Your app talks to Supabase with a public key that every visitor’s browser has. Row-level security is what stops one person from reading or changing someone else’s rows, and it’s off for ${open.length === 1 ? `the ${list[0]} table` : `${list.slice(0, 6).join(', ')}${list.length > 6 ? ` and ${list.length - 6} more` : ''}`}. Without it, anyone can use that key to read, change or delete every row${open.length === 1 ? '' : ' in them'}. If your app only reaches the database from its own server, the risk is lower, but switching it on is still the safe default.`,
+          items, notes,
+          locations: open.map(([, t]) => t.off || { file: t.file, line: t.line }),
+          fix: [
+            `Security fix: Supabase tables without row-level security (RLS). Do not print any keys.`,
+            ``,
+            `Anyone with the app's public (anon) key can read and change these tables:`,
+            ...open.map(([name, t]) => `- ${name}: created in ${t.file}:${t.line}${t.off ? `, row-level security switched off in ${t.off.file}:${t.off.line}` : ''}`),
+            ``,
+            `1. Read how the app uses each table: which pages read or write it, and whether rows belong to a user (for example a user_id column that should match auth.uid()).`,
+            `2. Write one new migration (don't edit the old ones) that runs \`alter table <table> enable row level security;\` for each table, plus policies so the app keeps working: usually signed-in users can read and change only their own rows (\`using (auth.uid() = user_id)\`), and tables meant to be public get a read-only policy. Server code that uses the service-role key isn't affected by these rules.`,
+            `3. Explain the policies to me in plain words before applying anything, and don't loosen any existing policy.`,
+            `4. Tell me how to apply the migration (for example \`supabase db push\`) and how to check, while signed out, that I can't read other people's rows.`,
+          ].join('\n'),
+        });
+      }
+      const loose = policies.filter((pol) => tables.get(pol.table)?.rls === true);
+      if (loose.length) {
+        const verb = (cmd) => ({ insert: 'add', update: 'change', delete: 'delete' }[cmd] || 'add, change and delete');
+        const rowsOf = (cmd, t) => `${verb(cmd)} rows ${{ insert: 'to', delete: 'from' }[cmd] || 'in'} ${t}`;
+        const items = [], notes = {};
+        for (const pol of loose) {
+          const it = itemFor(pol.file);
+          if (!it) continue;
+          if (!items.includes(it)) items.push(it);
+          notes[it] = (notes[it] ? notes[it] + ' · ' : '') + `line ${pol.line}: “${pol.policy}” lets anyone ${rowsOf(pol.cmd, short(pol.table))}`;
+        }
+        issues.push({
+          id: 'open-policy:' + repo, kind: 'database-rules', severity: 'medium',
+          title: loose.length === 1 ? `A database rule lets anyone change your ${short(loose[0].table)} table` : `${loose.length} database rules let anyone change your data`,
+          detail: `${loose.length === 1 ? `The rule “${loose[0].policy}” lets anyone` : `These rules let anyone`}${loose.some((pol) => pol.signedOut) ? ', even people who aren’t signed in,' : ''} ${loose.length === 1 ? rowsOf(loose[0].cmd, short(loose[0].table)) : `add, change or delete rows in ${[...new Set(loose.map((pol) => short(pol.table)))].slice(0, 5).join(', ')}`}. If a table is a public form (like a waitlist or contact form), letting anyone add rows is fine; otherwise limit it to signed-in users and their own rows.`,
+          items, notes,
+          locations: loose.map((pol) => ({ file: pol.file, line: pol.line })),
+          fix: [
+            `Security review: Supabase row-level security policies that allow anyone to change data (\`using (true)\` / \`with check (true)\` for anon or public):`,
+            ...loose.map((pol) => `- “${pol.policy}” on ${pol.table} (for ${pol.cmd}) — ${pol.file}:${pol.line}`),
+            ``,
+            `For each one, tell me in plain words what it allows and whether the app needs that. If the table isn't meant to be public, replace \`true\` with a check such as \`auth.uid() = user_id\`, limited to authenticated users, in a new migration. If it's a public form, keep adding rows open but make sure nobody can read, change or delete other people's rows. Show me the change before applying it.`,
+          ].join('\n'),
+        });
+      }
+    }
+  }
+
+  // ---------- Firebase security rules that let anyone in ----------
+  const today = new Date();
+  const longDate = (d) => d.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' });
+  for (const f of scan.files) {
+    const base = f.path.split('/').pop();
+    if (!live(f.path) || !(/\.rules$/i.test(base) || /^database(\.[\w-]+)?\.rules\.json$/i.test(base))) continue;
+    let src = '';
+    try { src = readHead(path.join(root, f.path), 262144); } catch { continue; }
+    const rtdb = /\.json$/i.test(base);
+    const service = rtdb ? 'Realtime Database' : /service\s+firebase\.storage/.test(src) ? 'Storage' : /service\s+cloud\.firestore/.test(src) ? 'Firestore' : null;
+    if (!service) continue;
+    const rules = rtdb ? firebaseRtdbRules(src, today) : firebaseRules(src, today);
+    // the whole database, or (Firestore and Storage) any change beyond adding new records to one place
+    const severe = (r) => r.wide || (!rtdb && !r.createOnly);
+    const writes = rules.filter((r) => r.write && r.open !== 'expired' && severe(r));
+    const deepWrites = rules.filter((r) => r.write && r.open === 'always' && !severe(r));
+    const reads = rules.filter((r) => r.read && !r.write && r.open !== 'expired' && r.wide);
+    const until = rules.find((r) => r.open === 'until');
+    const expired = rules.find((r) => r.open === 'expired');
+    if (!writes.length && !deepWrites.length && !reads.length && !expired) continue;
+    const files = service === 'Storage';
+    const what = files ? 'files' : 'data';
+    const deploy = { Firestore: 'firestore:rules', Storage: 'storage', 'Realtime Database': 'database' }[service];
+    const shown = [...writes, ...deepWrites, ...reads, ...(expired ? [expired] : [])];
+    let title, detail, severity;
+    if (until && writes.length) {
+      severity = 'high';
+      title = `Your Firebase ${service} is open to anyone until ${longDate(until.until)}`;
+      detail = `${base} still has Firebase’s “test mode” rules: anyone can read and change ${files ? 'every file' : 'everything'} until ${longDate(until.until)}, without signing in or using your app. After that date every request is refused and the app stops working, so replace them with real rules rather than moving the date.`;
+    } else if (writes.length) {
+      severity = 'high';
+      title = files ? 'Anyone can upload, replace or delete your Firebase files' : `Anyone can change or delete your Firebase ${service} data`;
+      detail = `A rule in ${base} (line ${writes[0].line}, at ${writes[0].where}) lets anyone, signed in or not, ${files ? 'upload, replace or delete files' : 'add, change or delete data'}. Your app’s Firebase settings are in every visitor’s browser, so anyone can use them to reach your ${service} directly, without going through your app.`;
+    } else if (deepWrites.length || reads.length) {
+      severity = 'medium';
+      title = reads.length && !deepWrites.length ? `Anyone can read everything in your Firebase ${service}` : `Anyone can change part of your Firebase ${service}`;
+      detail = [
+        reads.length ? `A rule in ${base} (line ${reads[0].line}) lets anyone read every ${files ? 'file' : 'record'}, including data that may belong to your users. If everything there is meant to be public, that’s fine; otherwise it needs a sign-in check.` : '',
+        deepWrites.length ? `A rule in ${base} (line ${deepWrites[0].line}) lets anyone ${deepWrites[0].createOnly ? 'add to' : 'change'} ${deepWrites[0].where} without signing in. If that’s a public form (like a waitlist or contact form), that can be fine; otherwise it needs a sign-in check.` : '',
+      ].filter(Boolean).join(' ');
+    } else {
+      severity = 'medium';
+      title = `Your Firebase ${service} test-mode rules ran out on ${longDate(expired.until)}`;
+      detail = `${base} has Firebase’s “test mode” rules, which stopped allowing access on ${longDate(expired.until)}. Every read and write is now refused, so the parts of the app that use ${service} won’t work. Replace them with real rules instead of moving the date, which would open everything to anyone again.`;
+    }
+    const it = itemFor(f.path);
+    issues.push({
+      id: 'firebase-rules:' + f.path, kind: 'database-rules', severity, title, detail,
+      items: it ? [it] : [], notes: it ? { [it]: shown.slice(0, 4).map((r) => `line ${r.line}: ${r.text}`).join(' · ') } : {},
+      locations: shown.map((r) => ({ file: f.path, line: r.line })),
+      fix: [
+        `Security fix: Firebase ${service} security rules in ${f.path}.`,
+        ``,
+        `These rules let anyone in (or have expired):`,
+        ...shown.map((r) => `- line ${r.line}: ${r.text}`),
+        ``,
+        `1. Read how the app uses each ${rtdb ? 'path' : files ? 'storage folder' : 'collection'}: what each screen reads and writes, and which data belongs to a user (for example ${files ? 'files under a folder named after the user’s uid' : 'documents keyed by the user’s uid, or with an ownerId field'}).`,
+        `2. Rewrite the rules so signed-in users can only read and write their own ${what} (${rtdb ? 'auth != null && auth.uid === $uid' : files ? 'request.auth != null && request.auth.uid == userId' : 'request.auth != null && request.auth.uid == resource.data.ownerId'}), public content is read-only, and everything else is denied. Don't use test-mode dates.`,
+        `3. Explain the new rules to me in plain words and wait for my OK.`,
+        `4. Then deploy them with \`firebase deploy --only ${deploy}\` and check them in the Firebase console's Rules Playground (or the emulator): a signed-out user shouldn't be able to read or change anything private.`,
+      ].join('\n'),
+    });
+  }
+
+  // ---------- Stripe webhooks that don't check Stripe's signature ----------
+  const stripeFiles = new Map(); // file -> finding
+  for (const f of scan.files) if (live(f.path)) { const x = findings(f.path).find((y) => y.k === 'stripe-unsigned'); if (x) stripeFiles.set(f.path, x); }
+  for (const [file, x] of stripeFiles) {
+    const routesHere = graph.routes.map((r, i) => ({ r, i })).filter(({ r }) => r.f === file && r.m !== 'GET');
+    const it = itemFor(file);
+    const items = [...(it ? [it] : []), ...routesHere.map(({ i }) => 'r:' + i)];
+    const py = /\.py$/.test(file);
+    const next = /(^|\/)app\/.*route\.[jt]s$|(^|\/)pages\/api\//.test(file);
+    issues.push({
+      id: 'stripe-webhook:' + file, kind: 'stripe-webhook', severity: 'high',
+      title: `Anyone could fake a Stripe payment in ${nameOf(file)}`,
+      detail: `${file.split('/').pop()} acts on Stripe events (like “${x.events[0]}”) without checking Stripe’s signature, so anyone who finds the address can send a fake “payment succeeded” message and get orders, credits or a subscription for free. Stripe signs every real event; checking that signature takes a few lines.`,
+      items, notes: Object.fromEntries(items.map((id) => [id, id.startsWith('r:') ? 'Receives Stripe events without checking they’re real' : `line ${x.line}: handles ${x.events.join(', ')} without checking Stripe’s signature`])),
+      locations: [{ file, line: x.line }],
+      fix: [
+        `Security fix in ${file}: verify Stripe webhook signatures before acting on any event. Do not print any secret values.`,
+        ``,
+        `It handles ${x.events.join(', ')} (line ${x.line}) without calling ${py ? 'stripe.Webhook.construct_event' : 'stripe.webhooks.constructEvent'}.`,
+        ``,
+        py
+          ? `1. Read the raw request body as bytes (FastAPI: \`await request.body()\`; Flask: \`request.get_data()\`), not the parsed JSON.`
+          : next ? `1. Read the raw request body with \`await req.text()\` (App Router) or turn off the body parser for this route (Pages Router), not the parsed JSON.` : `1. Give this route the raw body: \`express.raw({ type: 'application/json' })\` on it, registered before \`express.json()\` runs for it.`,
+        py
+          ? `2. Call \`stripe.Webhook.construct_event(payload, request.headers["stripe-signature"], os.environ["STRIPE_WEBHOOK_SECRET"])\` and return 400 if it raises.`
+          : `2. Call \`stripe.webhooks.constructEvent(rawBody, signatureHeader, process.env.STRIPE_WEBHOOK_SECRET)\` (the \`stripe-signature\` header) and return 400 if it throws.`,
+        `3. Use only the verified event from then on, and handle each event once even if Stripe sends it again.`,
+        `4. Add STRIPE_WEBHOOK_SECRET (empty) to .env.example and tell me where to get it: the Stripe dashboard (Developers → Webhooks → the endpoint → Signing secret), or \`stripe listen\` when testing locally.`,
+      ].join('\n'),
+    });
+  }
+
+  // ---------- servers that let any website call them (CORS) ----------
+  const cors = [];
+  for (const f of scan.files) if (live(f.path)) for (const x of findings(f.path)) if (x.k === 'cors-any') cors.push({ file: f.path, ...x });
+  if (cors.length) {
+    const cred = cors.filter((c) => c.credentials);
+    const filesC = [...new Set(cors.map((c) => c.file))];
+    const items = [], notes = {};
+    for (const c of cors) {
+      const it = itemFor(c.file);
+      if (!it) continue;
+      if (!items.includes(it)) items.push(it);
+      notes[it] = (notes[it] ? notes[it] + ' · ' : '') + `line ${c.line}: ${c.how}${c.credentials ? ', with login cookies' : ''}`;
+    }
+    issues.push({
+      id: 'cors', kind: 'cors', severity: cred.length ? 'medium' : 'low',
+      title: cred.length ? 'Any website could act as your signed-in users' : 'Any website can call your server from a visitor’s browser',
+      detail: cred.length
+        ? `${cred[0].file.split('/').pop()} lets any website call this server from a visitor’s browser and send along their login cookies. So a site a signed-in user happens to visit could quietly read their data or act as them. Allow only your own app’s address instead.`
+        : `${filesC.length === 1 ? filesC[0].split('/').pop() : `${filesC.length} files`} tell browsers that any website may call this server. That’s fine for a public API that doesn’t use login cookies (for example one that checks a token in the Authorization header); otherwise, allow only your own app’s address.`,
+      items, notes,
+      locations: cors.map((c) => ({ file: c.file, line: c.line })),
+      fix: [
+        `Security review: CORS settings that allow every website:`,
+        ...cors.map((c) => `- ${c.file}:${c.line}: ${c.how}${c.credentials ? ' (with credentials)' : ''}`),
+        ``,
+        `First tell me in plain words whether this server uses login cookies or sessions, and which websites legitimately call it. Then replace the allow-everything setting with an explicit list of allowed origins read from an environment variable (for example ALLOWED_ORIGINS=https://myapp.com,http://localhost:3000). Keep credentials only if the app logs in with cookies, and never combine them with "*" or with echoing back whatever origin asks. Show me the change before making it, and change nothing else.`,
+      ].join('\n'),
+    });
+  }
+
   // ---------- endpoints anyone can call ----------
   const routeFinding = new Map(); // `${file}|${line}|${method}` -> finding
   const globalGuards = new Map(); // repo -> [{framework, name, file}]
@@ -574,6 +963,8 @@ export function buildHealth({ graph, scan, arch, root }) {
     // webhook receivers: by URL, or a webhook-ish handler in a webhook file (not that file's admin endpoints)
     const webhook = (WEBHOOK_PATH.test(r.p) && !WEBHOOK_ADMIN.test(r.p)) || (/webhook|hooks?\//i.test(r.f) && /webhook|hook|notify|event|ingress|pubsub|callback|receive|inbound/i.test(r.h || '') && !/create|list|manage|register|delete|test|setup|sync/i.test((r.h || '') + r.p));
     if (webhook && fnd.signed) return;
+    // a Stripe webhook that doesn't check Stripe's signature has its own, more specific issue
+    if (stripeFiles.has(r.f) && (webhook || /stripe|payment|hook/i.test(r.p) || graph.routes.filter((x) => x.f === r.f && x.m !== 'GET').length === 1)) return;
     if (!webhook && PUBLIC_PATH.test(r.p.replace(/<[^>]*>|\{[^}]*\}|:\w+|\[[^\]]*\]/g, 'x'))) return;
     if (r.p === '/' && r.m === 'GET') return;
     const entry = { i, r, fnd, write: !['GET', 'ANY'].includes(r.m), webhook };
@@ -735,12 +1126,66 @@ export function buildHealth({ graph, scan, arch, root }) {
     });
   }
 
-  const KIND_ORDER = ['secret', 'env-file', 'unprotected-endpoint', 'large-file', 'hardcoded-url', 'unused-file'];
+  const KIND_ORDER = ['secret', 'public-env-secret', 'database-rules', 'stripe-webhook', 'env-file', 'unprotected-endpoint', 'cors', 'large-file', 'hardcoded-url', 'unused-file'];
   issues.sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity] || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || (b.locations?.length || 0) - (a.locations?.length || 0));
   const kept = issues.slice(0, 40);
   const summary = { high: 0, medium: 0, low: 0 };
   for (const i of kept) summary[i.severity]++;
   return { summary, issues: kept };
+}
+
+/** Test mode, in Firestore/Storage rules (request.time < timestamp.date(Y, M, D)) or Realtime Database rules (now < ms). */
+const testModeEnd = (cond) => {
+  const d = /^request\.time\s*<\s*timestamp\.date\(\s*(\d{4})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)$/.exec(cond);
+  if (d) return new Date(Date.UTC(+d[1], +d[2] - 1, +d[3]));
+  const ms = /^now\s*<\s*(\d{12,14})$/.exec(cond);
+  return ms ? new Date(+ms[1]) : null;
+};
+
+/** Firestore / Storage rules that let anyone in: `allow …: if true`, `allow …;` (no condition) and test mode. */
+function firebaseRules(src, now) {
+  const s = src.replace(/\/\/[^\n]*/g, (m) => ' '.repeat(m.length));
+  const at = lineIndex(s);
+  const matches = [...s.matchAll(/\bmatch\s+(\/\S*)\s*\{/g)].map((m) => ({ i: m.index, path: m[1] }));
+  const out = [];
+  for (const m of s.matchAll(/\ballow\s+([a-z][a-z,\s]*?)\s*(?::\s*if\s+([^;]+?))?\s*;/g)) {
+    const ops = m[1].split(/[\s,]+/).filter(Boolean);
+    const cond = (m[2] || 'true').trim().replace(/\s+/g, ' ');
+    const end = cond === 'true' ? null : testModeEnd(cond);
+    if (cond !== 'true' && !end) continue;
+    const where = matches.filter((x) => x.i < m.index).pop()?.path || '/';
+    const writeOps = ops.filter((o) => /^(write|create|update|delete)$/.test(o));
+    out.push({
+      line: at(m.index), text: `allow ${ops.join(', ')}${m[2] ? `: if ${cond}` : ' (no condition)'} at ${where}`,
+      read: ops.some((o) => /^(read|get|list)$/.test(o)), write: writeOps.length > 0, createOnly: writeOps.length > 0 && writeOps.every((o) => o === 'create'),
+      open: !end ? 'always' : end > now ? 'until' : 'expired', until: end, where,
+      wide: /=\*\*\}/.test(where) || /\/documents$/.test(where) || where === '/',
+    });
+  }
+  return out;
+}
+
+/** Realtime Database rules (database.rules.json) with ".read" / ".write" set to true or test mode. */
+function firebaseRtdbRules(src, now) {
+  const s = src.replace(/(^|[^:"])\/\/[^\n]*/g, (m, pre) => pre + ' '.repeat(m.length - pre.length));
+  const at = lineIndex(s);
+  const out = [];
+  for (const m of s.matchAll(/"\.(read|write)"\s*:\s*(true\b|"([^"]*)")/g)) {
+    const cond = m[2] === 'true' ? 'true' : (m[3] || '').trim();
+    const end = cond === 'true' ? null : testModeEnd(cond);
+    if (cond !== 'true' && !end) continue;
+    // how deep it sits: { "rules": { ".read": … } } is the whole database
+    let depth = 0;
+    for (let i = 0; i < m.index; i++) { if (s[i] === '{') depth++; else if (s[i] === '}') depth--; }
+    const keys = [...s.slice(0, m.index).matchAll(/"([^".][^"]*)"\s*:\s*\{/g)].map((k) => k[1]);
+    const where = depth <= 2 ? 'the whole database' : '/' + keys.slice(-(depth - 2)).join('/');
+    out.push({
+      line: at(m.index), text: `"${m[1] === 'read' ? '.read' : '.write'}": ${m[2]} for ${where}`,
+      read: m[1] === 'read', write: m[1] === 'write', createOnly: false,
+      open: !end ? 'always' : end > now ? 'until' : 'expired', until: end, where, wide: depth <= 2, root: depth <= 2,
+    });
+  }
+  return out;
 }
 
 function readHead(file, max) {

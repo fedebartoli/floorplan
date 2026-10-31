@@ -35,6 +35,8 @@ test('placeholders, values read from the environment and public settings are not
   assert.deepEqual(secrets('DB_PASSWORD = "changeme"\nAPI_KEY = "your-api-key-here"\nSECRET = "xxx"\n'), []);
   assert.deepEqual(secrets('DB_PASSWORD = os.environ["DB_PASSWORD"]\nAPI_KEY = os.getenv("API_KEY")\n'), []);
   assert.deepEqual(secrets('API_URL = "https://api.example.com/v1/orders"\n'), []);
+  // Supabase's config.toml reads secrets from the environment with env(NAME)
+  assert.deepEqual(secrets('s3_secret_key = "env(S3_SECRET_KEY)"\n', 'supabase/config.toml', 'toml'), []);
 });
 
 test('tokens that are public by design are not flagged (#23)', () => {
